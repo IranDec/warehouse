@@ -48,23 +48,25 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
     if (currentUser.role === 'DepartmentEmployee' && currentUser.categoryAccess) {
       return MOCK_PRODUCTS.filter(p => p.category === currentUser.categoryAccess && p.status !== 'Out of Stock' && p.status !== 'Damaged');
     }
-    // For Admin/Manager, show all non-damaged/out-of-stock products if they were to create requests (though UI flow doesn't typically support this for them)
-    // Or if DepartmentEmployee has no categoryAccess for some reason (should not happen with proper setup)
+    // For Admin/Manager, show all non-damaged/out-of-stock products.
+    // Or if DepartmentEmployee has no categoryAccess (should not happen with proper setup)
     return MOCK_PRODUCTS.filter(p => p.status !== 'Out of Stock' && p.status !== 'Damaged');
   }, [currentUser]);
 
   useEffect(() => {
     if (isOpen) {
         if (existingRequest) {
+        // Deep copy items to prevent direct state mutation issues if modal is re-opened with same existingRequest
         setItems(existingRequest.items.map(item => ({...item}))); 
         setReasonForRequest(existingRequest.reasonForRequest);
         try {
             setRequestedDate(parseISO(existingRequest.requestedDate));
         } catch (e) {
-            console.warn("Failed to parse existing request date", existingRequest.requestedDate);
+            console.warn("Failed to parse existing request date", existingRequest.requestedDate, e);
             setRequestedDate(addDays(new Date(), 7));
         }
         } else {
+        // Reset to default for new request
         setItems([{ productId: '', productName: '', quantity: 1 }]);
         setReasonForRequest('');
         setRequestedDate(addDays(new Date(), 7));
@@ -83,6 +85,7 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
         productName: product ? product.name : '',
       };
     } else if (field === 'quantity') {
+       // Ensure quantity is a positive number
        newItems[index] = { ...newItems[index], quantity: Math.max(1, Number(value)) }; 
     }
     setItems(newItems);
@@ -118,9 +121,9 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
     onSubmit({
       items: items.map(item => ({ productId: item.productId, productName: item.productName, quantity: item.quantity })),
       reasonForRequest,
-      requestedDate: format(requestedDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), 
+      requestedDate: format(requestedDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // Ensure full ISO string for consistency
     });
-    onClose(); 
+    onClose(); // Close modal on successful submission
   };
   
   const getProductStock = (productId: string): number | string => {
@@ -138,10 +141,12 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
           </DialogDescription>
         </DialogHeader>
 
+        {/* Scrollable content area */}
         <div className="space-y-6 py-4 flex-grow overflow-y-auto pr-3"> {/* Added pr-3 for scrollbar */}
           <div className="space-y-2">
             <Label className="text-base font-semibold">Requested Items</Label>
-            <div className="space-y-3 max-h-[calc(90vh-350px)] overflow-y-auto pr-1"> {/* Scrollable items section */}
+            {/* Scrollable items section */}
+            <div className="space-y-3 max-h-[calc(90vh-350px)] overflow-y-auto pr-1"> 
               {items.map((item, index) => (
                 <div key={index} className="flex flex-col sm:flex-row items-start sm:items-end gap-2 p-3 border rounded-md bg-muted/30">
                   <div className="flex-grow w-full space-y-1">
@@ -164,7 +169,7 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
                     </Select>
                     {item.productId && (
                         <p className="text-xs text-muted-foreground ml-1">
-                            Selected: {item.productName} (Current Stock: {getProductStock(item.productId)})
+                            Selected: {item.productName || 'Product Name Not Found'} (Current Stock: {getProductStock(item.productId)})
                         </p>
                     )}
                   </div>
@@ -208,7 +213,9 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
             <DatePicker
               date={requestedDate}
               onDateChange={setRequestedDate}
-              className="w-full"
+              className="w-full" // Ensure date picker takes full width in its container
+              // You can add a disabled prop to DatePicker if needed:
+              // disabled={(date) => date < new Date() || date < addDays(new Date(), -1)} // Example: disable past dates
             />
           </div>
         </div>
@@ -227,3 +234,4 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
     </Dialog>
   );
 }
+

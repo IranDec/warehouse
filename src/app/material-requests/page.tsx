@@ -32,8 +32,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"; // AlertDialogTrigger removed as it's part of DropdownMenuItem
 
 
 export default function MaterialRequestsPage() {
@@ -81,8 +80,14 @@ export default function MaterialRequestsPage() {
   const handleAction = (requestId: string, newStatus: MaterialRequestStatus, notes?: string) => {
     if (!currentUser) return;
 
+    const requestToUpdate = requests.find(r => r.id === requestId);
+    if (!requestToUpdate) {
+        toast({ title: "Error", description: "Request not found.", variant: "destructive"});
+        return;
+    }
+    
     const isManagerAction = (newStatus === 'Approved' || newStatus === 'Rejected') && canManageRequests;
-    const isRequesterAction = newStatus === 'Cancelled' && requests.find(r => r.id === requestId)?.requesterId === currentUser.id;
+    const isRequesterAction = newStatus === 'Cancelled' && requestToUpdate.requesterId === currentUser.id;
 
     if (!isManagerAction && !isRequesterAction) {
         toast({ title: "Permission Denied", description: "You do not have permission to perform this action.", variant: "destructive"});
@@ -98,7 +103,7 @@ export default function MaterialRequestsPage() {
               approverId: isManagerAction ? currentUser.id : req.approverId,
               approverName: isManagerAction ? currentUser.name : req.approverName,
               actionDate: new Date().toISOString(),
-              approverNotes: notes || req.approverNotes,
+              approverNotes: notes || req.approverNotes, // Keep existing notes if new ones aren't provided
             }
           : req
       )
@@ -150,12 +155,15 @@ export default function MaterialRequestsPage() {
       header: "Status",
       cell: ({ row }) => {
         const status = row.original.status;
-        let badgeClass = "bg-secondary text-secondary-foreground border-transparent";
-        if (status === "Pending") badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200";
-        if (status === "Approved") badgeClass = "bg-green-100 text-green-800 border-green-300 hover:bg-green-200";
-        if (status === "Completed") badgeClass = "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200";
-        if (status === "Rejected") badgeClass = "bg-red-100 text-red-800 border-red-300 hover:bg-red-200";
-        if (status === "Cancelled") badgeClass = "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200";
+        let badgeClass = "";
+        switch(status) {
+            case "Pending": badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200"; break;
+            case "Approved": badgeClass = "bg-green-100 text-green-800 border-green-300 hover:bg-green-200"; break;
+            case "Completed": badgeClass = "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200"; break;
+            case "Rejected": badgeClass = "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"; break;
+            case "Cancelled": badgeClass = "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200"; break;
+            default: badgeClass = "bg-secondary text-secondary-foreground border-transparent";
+        }
         
         return <Badge variant={
             status === "Rejected" || status === "Cancelled" ? "destructive" : 
@@ -167,6 +175,20 @@ export default function MaterialRequestsPage() {
       accessorKey: "submissionDate",
       header: "Submitted On",
       cell: ({ row }) => new Date(row.original.submissionDate).toLocaleDateString(),
+    },
+    {
+        accessorKey: "approverName",
+        header: "Approver/Notes",
+        cell: ({ row }) => {
+            const { approverName, approverNotes, status } = row.original;
+            if (status === 'Pending' || status === 'Cancelled' && !approverName) return <span className="text-xs text-muted-foreground">N/A</span>;
+            return (
+                <div className="text-xs">
+                    {approverName && <p className="font-medium">{approverName}</p>}
+                    {approverNotes && <p className="text-muted-foreground truncate max-w-[150px]" title={approverNotes}>{approverNotes}</p>}
+                </div>
+            )
+        }
     },
     {
       id: "actions",
@@ -191,6 +213,7 @@ export default function MaterialRequestsPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     const reason = prompt('Reason for rejection (optional):');
+                    // prompt returns null if cancelled, empty string if OK with no input
                     if (reason !== null) { 
                       handleAction(request.id, 'Rejected', reason || undefined);
                     }
@@ -262,7 +285,7 @@ export default function MaterialRequestsPage() {
             const updatedReq = {
               ...editingRequest,
               ...data,
-              items: data.items,
+              items: data.items, // Ensure items are correctly mapped
               requestedDate: data.requestedDate,
               reasonForRequest: data.reasonForRequest,
             };
@@ -298,3 +321,4 @@ export default function MaterialRequestsPage() {
     </div>
   );
 }
+
