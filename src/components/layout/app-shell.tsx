@@ -3,10 +3,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Warehouse, Settings, LogOut, UserCog } from 'lucide-react'; // Removed Users as it's not used directly here
+import { Warehouse, Settings, LogOut, UserCog, PanelLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { APP_NAME, NAV_ITEMS } from '@/lib/constants';
-import type { NavItem } from '@/lib/types';
+// NavItem type is used by calculatePageTitle, ensure it's available if NAV_ITEMS structure relies on it.
+// For this change, direct usage is not in JSX, so not strictly needed here if NAV_ITEMS is just an array of objects.
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -32,18 +33,20 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger, // Added SidebarTrigger
+  SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Added useState, useEffect, useCallback
 import { useAuth } from '@/contexts/auth-context';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isMobile, openMobile, state: sidebarState } = useSidebar(); // Added sidebarState
+  const { isMobile, openMobile } = useSidebar(); 
   const { currentUser, setCurrentUserById, users: availableUsers } = useAuth();
 
-  const getPageTitle = () => {
+  const [clientPageTitle, setClientPageTitle] = useState(''); // Initialize empty
+
+  const calculatePageTitle = useCallback(() => {
     for (const item of NAV_ITEMS) {
       if (item.href === '/' && pathname === '/') return item.label;
       if (item.href !== '/' && pathname.startsWith(item.href)) return item.label;
@@ -54,8 +57,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
     const segments = pathname.split('/').filter(Boolean);
-    return segments.length > 0 ? segments[segments.length - 1].charAt(0).toUpperCase() + segments[segments.length - 1].slice(1) : APP_NAME;
-  };
+    return segments.length > 0 
+      ? segments[segments.length - 1].charAt(0).toUpperCase() + segments[segments.length - 1].slice(1) 
+      : APP_NAME;
+  }, [pathname]);
+
+  useEffect(() => {
+    setClientPageTitle(calculatePageTitle());
+  }, [calculatePageTitle]);
+
 
   return (
     <div className={cn("flex min-h-screen w-full bg-background", {"overflow-hidden": isMobile && openMobile})}>
@@ -144,7 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SidebarTrigger className="md:hidden -ml-2"/> {/* Mobile toggle */}
             <SidebarTrigger className="hidden md:flex"/> {/* Desktop toggle, hidden if sidebar is icon only and expanded */}
             <h1 className="text-xl font-semibold ml-2">
-              {getPageTitle()}
+              {clientPageTitle ? clientPageTitle : <span className="opacity-0 select-none">{APP_NAME}</span>}
             </h1>
           </header>
           <main className="flex-1 overflow-auto">
