@@ -11,37 +11,106 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MOCK_PRODUCTS, MOCK_CATEGORIES, PRODUCT_STATUS_OPTIONS } from '@/lib/constants';
-import type { Product, ProductStatus, Category } from '@/lib/types';
-import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye } from 'lucide-react';
+import { MOCK_PRODUCTS, MOCK_CATEGORIES, PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
+import type { Product, ProductStatus, Category, Warehouse } from '@/lib/types';
+import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Home } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
-
-const ALL_FILTER_VALUE = "__ALL__";
+import Papa from 'papaparse';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterWarehouse, setFilterWarehouse] = useState<string>('');
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedProductForStatus, setSelectedProductForStatus] = useState<Product | null>(null);
   const { toast } = useToast();
 
   const handleProductImport = async (file: File) => {
-    // Simulate file processing for product import
-    console.log("Importing products from:", file.name);
-    // In a real app, parse file and update products state or call API
-    toast({ title: "Products Imported", description: `${file.name} processed. (Simulated)` });
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        try {
+          const newProducts: Product[] = results.data.map((row: any) => {
+            // Basic validation and type conversion
+            if (!row.id || !row.name || !row.sku) {
+              throw new Error(`Missing required fields (id, name, sku) in row: ${JSON.stringify(row)}`);
+            }
+            return {
+              id: String(row.id),
+              name: String(row.name),
+              sku: String(row.sku),
+              category: String(row.category || 'Uncategorized'),
+              quantity: parseInt(row.quantity || '0', 10),
+              reorderLevel: parseInt(row.reorderLevel || '0', 10),
+              warehouseId: String(row.warehouseId || MOCK_WAREHOUSES[0]?.id || 'wh1'),
+              status: (row.status as ProductStatus) || 'Available',
+              lastUpdated: new Date().toISOString(),
+              imageUrl: String(row.imageUrl || 'https://placehold.co/100x100.png'),
+              description: String(row.description || ''),
+            };
+          });
+
+          // Filter out duplicates by ID, prefer new data
+          const productMap = new Map(products.map(p => [p.id, p]));
+          newProducts.forEach(np => productMap.set(np.id, np));
+          
+          setProducts(Array.from(productMap.values()));
+          toast({ title: "Products Imported", description: `${newProducts.length} products processed from ${file.name}.` });
+        } catch (error: any) {
+          console.error("Error processing product import CSV:", error);
+          toast({ title: "Import Error", description: `Failed to import products: ${error.message}`, variant: "destructive" });
+        }
+      },
+      error: (error: any) => {
+        console.error("Error parsing product import CSV:", error);
+        toast({ title: "Parsing Error", description: `Could not parse ${file.name}: ${error.message}`, variant: "destructive" });
+      }
+    });
   };
 
   const handleInventoryUpdate = async (file: File) => {
-    // Simulate file processing for inventory update
-    console.log("Updating inventory from:", file.name);
-    // In a real app, parse file and update product quantities or call API
-    toast({ title: "Inventory Updated", description: `${file.name} processed. (Simulated)` });
+     Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        try {
+          const updates = results.data as Array<{ sku: string, quantity?: string, reorderLevel?: string }>;
+          let updatedCount = 0;
+
+          setProducts(prevProducts => {
+            const newProductsState = prevProducts.map(p => {
+              const update = updates.find(u => u.sku === p.sku);
+              if (update) {
+                updatedCount++;
+                return {
+                  ...p,
+                  quantity: update.quantity !== undefined ? parseInt(update.quantity, 10) : p.quantity,
+                  reorderLevel: update.reorderLevel !== undefined ? parseInt(update.reorderLevel, 10) : p.reorderLevel,
+                  lastUpdated: new Date().toISOString(),
+                };
+              }
+              return p;
+            });
+            return newProductsState;
+          });
+          
+          toast({ title: "Inventory Updated", description: `${updatedCount} products updated from ${file.name}.` });
+        } catch (error: any) {
+          console.error("Error processing inventory update CSV:", error);
+          toast({ title: "Update Error", description: `Failed to update inventory: ${error.message}`, variant: "destructive" });
+        }
+      },
+      error: (error: any) => {
+        console.error("Error parsing inventory update CSV:", error);
+        toast({ title: "Parsing Error", description: `Could not parse ${file.name}: ${error.message}`, variant: "destructive" });
+      }
+    });
   };
 
   const handleOpenStatusModal = (product: Product) => {
@@ -58,14 +127,19 @@ export default function ProductsPage() {
     toast({ title: "Status Updated", description: `Status for product ${productId} changed to ${newStatus}.` });
   };
   
+  const getWarehouseName = (warehouseId: string) => {
+    return MOCK_WAREHOUSES.find(wh => wh.id === warehouseId)?.name || 'N/A';
+  };
+
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       const nameMatch = product.name.toLowerCase().includes(filterName.toLowerCase()) || product.sku.toLowerCase().includes(filterName.toLowerCase());
       const categoryMatch = filterCategory ? product.category === filterCategory : true;
       const statusMatch = filterStatus ? product.status === filterStatus : true;
-      return nameMatch && categoryMatch && statusMatch;
+      const warehouseMatch = filterWarehouse ? product.warehouseId === filterWarehouse : true;
+      return nameMatch && categoryMatch && statusMatch && warehouseMatch;
     });
-  }, [products, filterName, filterCategory, filterStatus]);
+  }, [products, filterName, filterCategory, filterStatus, filterWarehouse]);
 
   const columns: ColumnDef<Product>[] = [
     {
@@ -91,6 +165,11 @@ export default function ProductsPage() {
     },
     { accessorKey: "sku", header: "SKU" },
     { accessorKey: "category", header: "Category" },
+    { 
+      accessorKey: "warehouseId", 
+      header: "Warehouse",
+      cell: ({ row }) => getWarehouseName(row.original.warehouseId)
+    },
     { accessorKey: "quantity", header: "Quantity" },
     {
       accessorKey: "status",
@@ -98,7 +177,7 @@ export default function ProductsPage() {
       cell: ({ row }) => {
         const status = row.original.status;
         let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "default";
-        if (status === "Low Stock") badgeVariant = "outline"; // yellow-ish
+        if (status === "Low Stock") badgeVariant = "outline";
         if (status === "Out of Stock" || status === "Damaged") badgeVariant = "destructive";
         
         return <Badge variant={badgeVariant} className={
@@ -150,15 +229,17 @@ export default function ProductsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" id="import">
         <FileUploadCard
-          title="Import Products"
-          description="Upload an .xlsx or .csv file to bulk add new products to the inventory."
+          title="Import Products (CSV)"
+          description="Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description"
           onFileUpload={handleProductImport}
+          acceptedFileTypes=".csv"
           icon={<UploadCloud className="h-8 w-8 text-primary" />}
         />
         <FileUploadCard
-          title="Update Inventory"
-          description="Use an Excel file to update existing stock quantities and reorder levels."
+          title="Update Inventory (CSV)"
+          description="Use a .csv file to update existing stock quantities and reorder levels. Expects headers: sku,quantity,reorderLevel"
           onFileUpload={handleInventoryUpdate}
+          acceptedFileTypes=".csv"
           icon={<UploadCloud className="h-8 w-8 text-primary" />}
         />
          <div className="lg:col-span-1 p-6 bg-card rounded-lg shadow-lg border">
@@ -172,12 +253,12 @@ export default function ProductsPage() {
       </div>
 
       <div className="space-y-4 pt-6">
-        <div className="flex flex-col md:flex-row gap-2 items-center">
+        <div className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
           <Input
             placeholder="Filter by name or SKU..."
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
-            className="max-w-sm h-9"
+            className="max-w-xs h-9"
           />
           <Select 
             value={filterCategory} 
@@ -203,7 +284,19 @@ export default function ProductsPage() {
               {PRODUCT_STATUS_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="ghost" onClick={() => { setFilterName(''); setFilterCategory(''); setFilterStatus('');}} className="h-9">
+          <Select
+            value={filterWarehouse}
+            onValueChange={(value) => setFilterWarehouse(value === ALL_FILTER_VALUE ? "" : value)}
+          >
+            <SelectTrigger className="w-full md:w-[180px] h-9">
+              <SelectValue placeholder="All Warehouses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_FILTER_VALUE}>All Warehouses</SelectItem>
+              {MOCK_WAREHOUSES.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" onClick={() => { setFilterName(''); setFilterCategory(''); setFilterStatus(''); setFilterWarehouse('');}} className="h-9">
             <Filter className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>

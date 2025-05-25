@@ -6,17 +6,14 @@ import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { VarianceExplainerModal } from "@/components/inventory/variance-explainer-modal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS } from '@/lib/constants';
-import type { InventoryTransaction, InventoryTransactionType, Product } from '@/lib/types';
-import { ListOrdered, BarChartHorizontalBig, Filter, Package } from 'lucide-react';
+import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
+import type { InventoryTransaction, InventoryTransactionType, Product, Warehouse } from '@/lib/types';
+import { ListOrdered, Filter, Package } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import { DateRangePicker } from '@/components/common/date-range-picker';
-import { DateRange } from 'react-day-picker';
-import { addDays, format } from 'date-fns';
-
-const ALL_FILTER_VALUE = "__ALL__";
+import type { DateRange } from 'react-day-picker';
+import { addDays } from 'date-fns';
 
 const TRANSACTION_TYPES: InventoryTransactionType[] = ['Inflow', 'Outflow', 'Return', 'Damage', 'Adjustment', 'Initial'];
 
@@ -24,6 +21,7 @@ export default function InventoryPage() {
   const [transactions, setTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
   const [filterProduct, setFilterProduct] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
+  const [filterWarehouse, setFilterWarehouse] = useState<string>('');
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
@@ -33,13 +31,14 @@ export default function InventoryPage() {
     return transactions.filter(transaction => {
       const productMatch = filterProduct ? transaction.productId === filterProduct : true;
       const typeMatch = filterType ? transaction.type === filterType : true;
+      const warehouseMatch = filterWarehouse ? transaction.warehouseId === filterWarehouse : true;
       const date = new Date(transaction.date);
       const dateMatch = dateRange?.from && dateRange?.to 
         ? date >= dateRange.from && date <= dateRange.to 
         : true;
-      return productMatch && typeMatch && dateMatch;
+      return productMatch && typeMatch && warehouseMatch && dateMatch;
     });
-  }, [transactions, filterProduct, filterType, dateRange]);
+  }, [transactions, filterProduct, filterType, filterWarehouse, dateRange]);
 
   const columns: ColumnDef<InventoryTransaction>[] = [
     {
@@ -48,6 +47,11 @@ export default function InventoryPage() {
       cell: ({ row }) => new Date(row.original.date).toLocaleDateString(),
     },
     { accessorKey: "productName", header: "Product Name" },
+    { 
+      accessorKey: "warehouseName", 
+      header: "Warehouse",
+      cell: ({ row }) => row.original.warehouseName || MOCK_WAREHOUSES.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A'
+    },
     { accessorKey: "type", header: "Type" },
     { 
       accessorKey: "quantityChange", 
@@ -76,7 +80,7 @@ export default function InventoryPage() {
       />
 
       <div className="space-y-4 pt-2">
-        <div className="flex flex-col md:flex-row gap-2 items-center">
+        <div className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
           <Select 
             value={filterProduct} 
             onValueChange={(value) => setFilterProduct(value === ALL_FILTER_VALUE ? "" : value)}
@@ -101,8 +105,20 @@ export default function InventoryPage() {
               {TRANSACTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select
+            value={filterWarehouse}
+            onValueChange={(value) => setFilterWarehouse(value === ALL_FILTER_VALUE ? "" : value)}
+          >
+            <SelectTrigger className="w-full md:w-[180px] h-9">
+              <SelectValue placeholder="All Warehouses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_FILTER_VALUE}>All Warehouses</SelectItem>
+              {MOCK_WAREHOUSES.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-          <Button variant="ghost" onClick={() => { setFilterProduct(''); setFilterType(''); setDateRange({ from: addDays(new Date(), -30), to: new Date() }); }} className="h-9">
+          <Button variant="ghost" onClick={() => { setFilterProduct(''); setFilterType(''); setFilterWarehouse(''); setDateRange({ from: addDays(new Date(), -30), to: new Date() }); }} className="h-9">
             <Filter className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>

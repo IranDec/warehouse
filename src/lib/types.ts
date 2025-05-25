@@ -8,18 +8,24 @@ export interface Category {
   description?: string;
 }
 
+export interface Warehouse {
+  id: string;
+  name: string;
+  location?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   sku: string;
-  category: string; // Category ID or name
+  category: string; // Category Name, ideally should be Category ID
   quantity: number;
   reorderLevel: number;
-  warehouse: string; // Warehouse ID or name
+  warehouseId: string; 
   status: ProductStatus;
   lastUpdated: string; // ISO date string
   imageUrl?: string;
-  description?: string; // Added for 'explainProductStatus'
+  description?: string;
 }
 
 export type InventoryTransactionType = 'Inflow' | 'Outflow' | 'Return' | 'Damage' | 'Adjustment' | 'Initial';
@@ -34,6 +40,8 @@ export interface InventoryTransaction {
   date: string; // ISO date string
   user: string; // User who performed the transaction or system
   notes?: string;
+  warehouseId?: string; // Optional: ID of the warehouse for this transaction
+  warehouseName?: string; // Optional: Name of the warehouse, denormalized for easier display
 }
 
 export interface NavItem {
