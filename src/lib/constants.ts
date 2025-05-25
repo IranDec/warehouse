@@ -10,6 +10,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/products', label: 'Products', icon: Package },
   { href: '/inventory', label: 'Inventory Ledger', icon: ListOrdered },
   { href: '/material-requests', label: 'Material Requests', icon: ClipboardList },
+  { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -193,7 +194,7 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
     productId: 'prod3',
     productName: 'Gamma Fabric Roll (Blue)',
     type: 'Damage',
-    quantityChange: -5,
+    quantityChange: -5, // Negative for damage
     date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
     user: 'Warehouse Inspection',
     reason: 'Water damage',
@@ -247,6 +248,30 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
     reason: 'Daily sale',
     warehouseId: 'wh5',
     warehouseName: 'Cold Storage',
+  },
+  {
+    id: 'txn9',
+    productId: 'prod1',
+    productName: 'Alpha-Core Processor',
+    type: 'Return',
+    quantityChange: 2, // Positive for return
+    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    user: 'Customer RMA #007',
+    reason: 'Incorrect item shipped',
+    warehouseId: 'wh1',
+    warehouseName: 'Main Warehouse',
+  },
+   {
+    id: 'txn10',
+    productId: 'prod4',
+    productName: 'Delta-Grade Steel Plate',
+    type: 'Damage',
+    quantityChange: -3, // Negative for damage
+    date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    user: 'Warehouse Inspection',
+    reason: 'Forklift accident',
+    warehouseId: 'wh3',
+    warehouseName: 'Metalworks Bay',
   },
 ];
 
@@ -350,5 +375,6 @@ export const MOCK_NOTIFICATION_SETTINGS: NotificationSetting[] = [
     { id: 'notif3', productId: 'prod3', productName: 'Gamma Fabric Roll (Blue)', threshold: 110, recipient: 'textile_supervisor@example.com', channel: 'sms', isEnabled: true },
     { id: 'notif4', productId: 'prod7', productName: 'M3 Screw Pack (100 units)', threshold: 250, recipient: 'hardware_manager@example.com', channel: 'email', isEnabled: false },
     { id: 'notif5', productId: 'prod6', productName: 'Organic Apples', threshold: 75, recipient: 'coldstorage_lead@example.com', channel: 'in-app', isEnabled: true },
+    { id: 'notif6', productId: 'prod4', productName: 'Delta-Grade Steel Plate', threshold: 5, recipient: 'metal_works_foreman@example.com', channel: 'email', isEnabled: true},
 ];
 
