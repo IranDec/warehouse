@@ -10,18 +10,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   Package, AlertTriangle, Activity, TrendingUp, TrendingDown, Settings, ShoppingCart, Component,
-  ClipboardList, BarChart3, ArrowRight, PackageSearch, Clock, CheckCircle2, XCircle, Hourglass, ListOrdered
+  ClipboardList, BarChart3, ArrowRight, PackageSearch, Clock, CheckCircle2, XCircle, Hourglass, ListOrdered,
+  ThumbsUp, ThumbsDown, PackageCheck, CircleSlash
 } from "lucide-react";
-import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS } from "@/lib/constants"; // MOCK_MATERIAL_REQUESTS removed
-import type { Product, BillOfMaterial, InventoryTransaction, MaterialRequest } from "@/lib/types";
+import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS } from "@/lib/constants";
+import type { Product, BillOfMaterial, InventoryTransaction, MaterialRequest } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
-import { addDays, subDays, isWithinInterval, parseISO } from 'date-fns';
+import { addDays, subDays, parseISO } from 'date-fns';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from '@/components/ui/badge';
+import { Badge } from "@/components/ui/badge";
 import { cn } from '@/lib/utils';
 
 interface StatCardProps {
@@ -86,9 +87,9 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, descripti
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const { currentUser, warehouses, materialRequests } = useAuth(); // Added materialRequests from useAuth
+  const { currentUser, warehouses, materialRequests, products: contextProducts, inventoryTransactions: contextTransactions, setInventoryTransactions, setProducts } = useAuth();
   const [loading, setLoading] = useState(true);
-  
+
   const [stats, setStats] = useState({
     totalProducts: 0,
     lowStockAlerts: 0,
@@ -102,18 +103,17 @@ export default function DashboardPage() {
   const [itemsToReorder, setItemsToReorder] = useState<Product[]>([]);
 
   const finishedGoods = useMemo(() => {
-    return MOCK_PRODUCTS.filter(p => p.category === 'Finished Goods');
-  }, []);
+    return contextProducts.filter(p => p.category === 'Finished Goods');
+  }, [contextProducts]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const products = MOCK_PRODUCTS;
-      const inventoryTransactions = MOCK_INVENTORY_TRANSACTIONS;
-      // Material requests are now from AuthContext
-      
+      const products = contextProducts;
+      const inventoryTransactions = contextTransactions;
+
       const lowStockProducts = products.filter(p => p.quantity <= p.reorderLevel || p.status === 'Low Stock' || p.status === 'Out of Stock');
       const pendingRequests = materialRequests.filter(r => r.status === 'Pending');
-      
+
       const sevenDaysAgo = subDays(new Date(), 7);
       const recentTrans = inventoryTransactions.filter(t => {
         try {
@@ -133,9 +133,9 @@ export default function DashboardPage() {
       setItemsToReorder(lowStockProducts.sort((a,b) => (a.quantity - a.reorderLevel) - (b.quantity - b.reorderLevel)).slice(0,3));
 
       setLoading(false);
-    }, 500); 
+    }, 500);
     return () => clearTimeout(timer);
-  }, [materialRequests]); // Added materialRequests dependency
+  }, [materialRequests, contextProducts, contextTransactions]);
 
   const handleSimulateSale = () => {
     if (!selectedFinishedGood) {
@@ -147,7 +147,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const soldProduct = MOCK_PRODUCTS.find(p => p.id === selectedFinishedGood);
+    const soldProduct = contextProducts.find(p => p.id === selectedFinishedGood);
     if (!soldProduct) {
         toast({ title: "Error", description: "Selected finished good not found.", variant: "destructive" });
         return;
@@ -156,61 +156,66 @@ export default function DashboardPage() {
     const bom = MOCK_BOM_CONFIGURATIONS.find(b => b.productId === selectedFinishedGood);
     let deductionMessages: string[] = [];
     const currentDate = new Date().toISOString();
+    const updatedProductsArray = [...contextProducts];
+    const updatedTransactionsArray = [...contextTransactions];
 
     // Simulate sale of finished good
-    const originalFinishedGoodQty = soldProduct.quantity;
-    soldProduct.quantity = Math.max(0, soldProduct.quantity - 1);
-    
+    const soldProductIndex = updatedProductsArray.findIndex(p => p.id === soldProduct.id);
+    if (soldProductIndex === -1) return;
+
+    const originalFinishedGoodQty = updatedProductsArray[soldProductIndex].quantity;
+    updatedProductsArray[soldProductIndex].quantity = Math.max(0, updatedProductsArray[soldProductIndex].quantity - 1);
+
     const finishedGoodTransaction: InventoryTransaction = {
         id: `txn_cms_fg_${Date.now()}`,
-        productId: soldProduct.id,
-        productName: soldProduct.name,
+        productId: updatedProductsArray[soldProductIndex].id,
+        productName: updatedProductsArray[soldProductIndex].name,
         type: 'Outflow',
         quantityChange: -1,
         date: currentDate,
         user: 'CMS Sale System',
-        reason: `Sold: ${soldProduct.name}`,
-        warehouseId: soldProduct.warehouseId,
-        warehouseName: warehouses.find(wh => wh.id === soldProduct.warehouseId)?.name || 'N/A',
+        reason: `Sold: ${updatedProductsArray[soldProductIndex].name}`,
+        warehouseId: updatedProductsArray[soldProductIndex].warehouseId,
+        warehouseName: warehouses.find(wh => wh.id === updatedProductsArray[soldProductIndex].warehouseId)?.name || 'N/A',
     };
-    MOCK_INVENTORY_TRANSACTIONS.unshift(finishedGoodTransaction);
-    deductionMessages.push(`- 1 x ${soldProduct.name} (Finished Good) from ${finishedGoodTransaction.warehouseName}. Stock: ${originalFinishedGoodQty} -> ${soldProduct.quantity}`);
+    updatedTransactionsArray.unshift(finishedGoodTransaction);
+    deductionMessages.push(`- 1 x ${updatedProductsArray[soldProductIndex].name} (Finished Good) from ${finishedGoodTransaction.warehouseName}. Stock: ${originalFinishedGoodQty} -> ${updatedProductsArray[soldProductIndex].quantity}`);
 
 
     if (bom && bom.items.length > 0) {
       bom.items.forEach(item => {
-        const rawMaterial = MOCK_PRODUCTS.find(p => p.id === item.rawMaterialId);
-        if (rawMaterial) {
-          const originalQty = rawMaterial.quantity;
-          rawMaterial.quantity = Math.max(0, rawMaterial.quantity - item.quantityNeeded);
-          
+        const rawMaterialIndex = updatedProductsArray.findIndex(p => p.id === item.rawMaterialId);
+        if (rawMaterialIndex !== -1) {
+          const originalQty = updatedProductsArray[rawMaterialIndex].quantity;
+          updatedProductsArray[rawMaterialIndex].quantity = Math.max(0, updatedProductsArray[rawMaterialIndex].quantity - item.quantityNeeded);
+
           const transaction: InventoryTransaction = {
-            id: `txn_cms_rm_${rawMaterial.id}_${Date.now()}`,
-            productId: rawMaterial.id,
-            productName: rawMaterial.name,
+            id: `txn_cms_rm_${updatedProductsArray[rawMaterialIndex].id}_${Date.now()}`,
+            productId: updatedProductsArray[rawMaterialIndex].id,
+            productName: updatedProductsArray[rawMaterialIndex].name,
             type: 'Outflow',
             quantityChange: -item.quantityNeeded,
             date: currentDate,
             user: 'CMS Sale System',
             reason: `Deducted for sale of ${soldProduct.name}`,
-            warehouseId: rawMaterial.warehouseId,
-            warehouseName: warehouses.find(wh => wh.id === rawMaterial.warehouseId)?.name || 'N/A',
+            warehouseId: updatedProductsArray[rawMaterialIndex].warehouseId,
+            warehouseName: warehouses.find(wh => wh.id === updatedProductsArray[rawMaterialIndex].warehouseId)?.name || 'N/A',
           };
-          MOCK_INVENTORY_TRANSACTIONS.unshift(transaction); 
-          deductionMessages.push(`- ${item.quantityNeeded} x ${rawMaterial.name} from ${transaction.warehouseName}. Stock: ${originalQty} -> ${rawMaterial.quantity}`);
+          updatedTransactionsArray.unshift(transaction);
+          deductionMessages.push(`- ${item.quantityNeeded} x ${updatedProductsArray[rawMaterialIndex].name} from ${transaction.warehouseName}. Stock: ${originalQty} -> ${updatedProductsArray[rawMaterialIndex].quantity}`);
         }
       });
-      
+
       toast({
         title: "CMS Sale & BOM Deduction Simulated",
         description: (
             <div className="text-xs">
                 <p className="mb-1">Sale of <strong>{soldProduct.name}</strong> simulated.</p>
-                <p className="mb-1">The following inventory changes occurred (mock data updated):</p>
+                <p className="mb-1">The following inventory changes occurred:</p>
                 <ul className="list-disc list-inside space-y-0.5 max-h-40 overflow-y-auto">
                     {deductionMessages.map((msg, i) => <li key={i}>{msg}</li>)}
                 </ul>
-                <p className="mt-2 text-muted-foreground">Check Inventory Ledger/Reports to see changes (may require navigation or page refresh to reflect fully).</p>
+                <p className="mt-2 text-muted-foreground">Inventory state updated. Check Inventory Ledger/Reports.</p>
             </div>
           ),
         duration: 15000,
@@ -226,41 +231,20 @@ export default function DashboardPage() {
                     {deductionMessages.map((msg, i) => <li key={i}>{msg}</li>)}
                 </ul>
                 <p className="mt-1">No Bill of Materials (BOM) was defined for {soldProduct.name}. Only the finished good quantity was updated.</p>
-                 <p className="mt-2 text-muted-foreground">Check Inventory Ledger/Reports to see changes (may require navigation or page refresh to reflect fully).</p>
+                 <p className="mt-2 text-muted-foreground">Inventory state updated. Check Inventory Ledger/Reports.</p>
             </div>
         ),
         variant: "default",
         duration: 10000,
       });
     }
-     // Force re-fetch/re-render of stats
+
+    setProducts(updatedProductsArray);
+    setInventoryTransactions(updatedTransactionsArray);
+
+    // Force re-fetch/re-render of stats by toggling loading
     setLoading(true);
-    setTimeout(() => { 
-        const products = MOCK_PRODUCTS;
-        const inventoryTransactions = MOCK_INVENTORY_TRANSACTIONS;
-        // materialRequests are from context and will update automatically
-
-        const lowStockProducts = products.filter(p => p.quantity <= p.reorderLevel || p.status === 'Low Stock' || p.status === 'Out of Stock');
-        const pendingRequests = materialRequests.filter(r => r.status === 'Pending');
-        
-        const sevenDaysAgo = subDays(new Date(), 7);
-        const recentTrans = inventoryTransactions.filter(t => {
-            try {
-            return parseISO(t.date) >= sevenDaysAgo;
-            } catch { return false; }
-        });
-
-        setStats({
-            totalProducts: products.length,
-            lowStockAlerts: lowStockProducts.length,
-            pendingMaterialRequests: pendingRequests.length,
-            recentTransactionsCount: recentTrans.length,
-        });
-        setRecentInventory(inventoryTransactions.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()).slice(0, 5));
-        setRecentRequests(materialRequests.sort((a,b) => parseISO(b.submissionDate).getTime() - parseISO(a.submissionDate).getTime()).slice(0,5));
-        setItemsToReorder(lowStockProducts.sort((a,b) => (a.quantity - a.reorderLevel) - (b.quantity - b.reorderLevel)).slice(0,3));
-        setLoading(false);
-    }, 200);
+    setTimeout(() => { setLoading(false); }, 200); // Triggers useEffect re-run
   };
 
   const getStatusBadgeVariant = (status: MaterialRequest['status']) => {
@@ -276,10 +260,10 @@ export default function DashboardPage() {
   const getStatusIcon = (status: MaterialRequest['status']) => {
     switch(status) {
         case "Pending": return <Hourglass className="h-3 w-3 text-yellow-600" />;
-        case "Approved": return <CheckCircle2 className="h-3 w-3 text-green-600" />;
-        case "Completed": return <PackageSearch className="h-3 w-3 text-blue-600" />;
-        case "Rejected": return <XCircle className="h-3 w-3 text-red-600" />;
-        case "Cancelled": return <Activity className="h-3 w-3 text-slate-600" />; 
+        case "Approved": return <ThumbsUp className="h-3 w-3 text-green-600" />;
+        case "Completed": return <PackageCheck className="h-3 w-3 text-blue-600" />;
+        case "Rejected": return <ThumbsDown className="h-3 w-3 text-red-600" />;
+        case "Cancelled": return <CircleSlash className="h-3 w-3 text-slate-600" />;
         default: return null;
     }
   };
@@ -287,45 +271,45 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
-      <PageHeader 
+      <PageHeader
         title={`Welcome, ${currentUser?.name || 'User'}!`}
         description="Your central hub for managing warehouse operations efficiently."
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard 
-            title="Total Products" 
-            value={stats.totalProducts} 
-            icon={Package} 
-            description="Managed in system" 
-            isLoading={loading} 
+        <StatCard
+            title="Total Products"
+            value={stats.totalProducts}
+            icon={Package}
+            description="Managed in system"
+            isLoading={loading}
             linkTo="/products"
             colorClass="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700"
         />
-        <StatCard 
-            title="Low Stock Alerts" 
-            value={stats.lowStockAlerts} 
-            icon={AlertTriangle} 
-            description="Items needing reorder" 
-            isLoading={loading} 
-            linkTo="/reports" 
+        <StatCard
+            title="Low Stock Alerts"
+            value={stats.lowStockAlerts}
+            icon={AlertTriangle}
+            description="Items needing reorder"
+            isLoading={loading}
+            linkTo="/reports"
             colorClass="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700"
         />
-        <StatCard 
-            title="Pending Requests" 
-            value={stats.pendingMaterialRequests} 
-            icon={ClipboardList} 
-            description="Awaiting approval" 
-            isLoading={loading} 
+        <StatCard
+            title="Pending Requests"
+            value={stats.pendingMaterialRequests}
+            icon={ClipboardList}
+            description="Awaiting approval"
+            isLoading={loading}
             linkTo="/material-requests?status=Pending"
             colorClass="bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700"
         />
-        <StatCard 
-            title="Recent Movements" 
-            value={stats.recentTransactionsCount} 
-            icon={ListOrdered} 
-            description="Transactions (last 7 days)" 
-            isLoading={loading} 
+        <StatCard
+            title="Recent Movements"
+            value={stats.recentTransactionsCount}
+            icon={ListOrdered}
+            description="Transactions (last 7 days)"
+            isLoading={loading}
             linkTo="/inventory"
             colorClass="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700"
         />
@@ -357,7 +341,7 @@ export default function DashboardPage() {
              )}
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-sm md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center"><Clock className="mr-2 h-5 w-5 text-primary" /> Recent Stock Movements</CardTitle>
@@ -399,7 +383,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-      
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="shadow-sm">
           <CardHeader>
@@ -489,7 +473,7 @@ export default function DashboardPage() {
                                     <TableCell className="font-mono py-1.5">{req.id}</TableCell>
                                     <TableCell className="py-1.5">{req.requesterName}</TableCell>
                                     <TableCell className="py-1.5 truncate max-w-[150px]" title={req.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}>
-                                        {req.items.map(i => i.productName).join(', ').substring(0,30)}...
+                                        {req.items.map(i => i.productName).join(', ').substring(0,30) + (req.items.map(i => i.productName).join(', ').length > 30 ? '...' : '')}
                                     </TableCell>
                                     <TableCell className="py-1.5">
                                         <Badge variant="outline" className={cn("font-medium text-xs px-1.5 py-0.5", getStatusBadgeVariant(req.status))}>
@@ -514,4 +498,3 @@ export default function DashboardPage() {
   );
 }
 
-    
