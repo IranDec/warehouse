@@ -14,23 +14,25 @@ interface FileUploadCardProps {
   acceptedFileTypes?: string; // e.g., ".xlsx,.csv"
   onFileUpload: (file: File) => Promise<void>; 
   icon?: React.ReactNode;
+  disabled?: boolean; // Added disabled prop
 }
 
 export function FileUploadCard({
   title,
   description,
-  acceptedFileTypes = ".xlsx,.csv", // Defaulting to excel and csv
+  acceptedFileTypes = ".xlsx,.csv", 
   onFileUpload,
-  icon = <UploadCloud className="h-12 w-12 text-primary" />
+  icon = <UploadCloud className="h-12 w-12 text-primary" />,
+  disabled = false, // Default to false
 }: FileUploadCardProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
-  // Create a unique ID for the file input if one isn't passed
   const inputId = React.useId();
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
@@ -52,12 +54,14 @@ export function FileUploadCard({
   };
 
   const handleRemoveFile = () => {
+    if (disabled) return;
     setSelectedFile(null);
     const input = document.getElementById(inputId) as HTMLInputElement;
     if (input) input.value = '';
   }
 
   const handleSubmit = async () => {
+    if (disabled) return;
     if (!selectedFile) {
       toast({
         title: "No file selected",
@@ -70,12 +74,10 @@ export function FileUploadCard({
     setIsUploading(true);
     try {
       await onFileUpload(selectedFile);
-      // Toast is handled by the parent component's onFileUpload for more specific messages
       setSelectedFile(null); 
       const input = document.getElementById(inputId) as HTMLInputElement;
       if (input) input.value = '';
     } catch (error) {
-      // Toast is handled by the parent component's onFileUpload
       console.error("Upload error in FileUploadCard:", error);
     } finally {
       setIsUploading(false);
@@ -83,11 +85,13 @@ export function FileUploadCard({
   };
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (disabled) return;
     event.preventDefault();
     event.stopPropagation();
-  }, []);
+  }, [disabled]);
 
   const onDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (disabled) return;
     event.preventDefault();
     event.stopPropagation();
     if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
@@ -106,10 +110,10 @@ export function FileUploadCard({
       }
       event.dataTransfer.clearData();
     }
-  }, [acceptedFileTypes, toast]);
+  }, [acceptedFileTypes, toast, disabled]);
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+    <Card className={cn("shadow-lg hover:shadow-xl transition-shadow duration-300", disabled && "opacity-70 bg-muted/50")}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {icon}
@@ -119,10 +123,13 @@ export function FileUploadCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div 
-          className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+          className={cn(
+            "border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors",
+            disabled ? "cursor-not-allowed" : "cursor-pointer"
+          )}
           onDragOver={onDragOver}
           onDrop={onDrop}
-          onClick={() => document.getElementById(inputId)?.click()}
+          onClick={() => !disabled && document.getElementById(inputId)?.click()}
         >
           <Input
             id={inputId}
@@ -130,11 +137,15 @@ export function FileUploadCard({
             accept={acceptedFileTypes}
             onChange={handleFileChange}
             className="hidden"
+            disabled={disabled}
           />
           <div className="flex flex-col items-center justify-center space-y-2">
             <UploadCloud className="h-10 w-10 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Drag & drop your file here, or <span className="font-semibold text-primary">click to browse</span>
+              {disabled 
+                ? "Upload disabled" 
+                : <>Drag & drop your file here, or <span className="font-semibold text-primary">click to browse</span></>
+              }
             </p>
             <p className="text-xs text-muted-foreground">Supports: {acceptedFileTypes.split(',').map(ext => ext.toUpperCase()).join(', ')}</p>
           </div>
@@ -146,13 +157,13 @@ export function FileUploadCard({
               <FileText className="h-5 w-5 text-primary" />
               <span className="text-sm font-medium truncate max-w-[200px] sm:max-w-xs">{selectedFile.name}</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="text-muted-foreground hover:text-destructive">
+            <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="text-muted-foreground hover:text-destructive" disabled={disabled}>
               <XCircle className="h-5 w-5" />
             </Button>
           </div>
         )}
 
-        <Button onClick={handleSubmit} disabled={!selectedFile || isUploading} className="w-full">
+        <Button onClick={handleSubmit} disabled={!selectedFile || isUploading || disabled} className="w-full">
           {isUploading ? "Processing..." : "Upload & Process File"}
         </Button>
       </CardContent>

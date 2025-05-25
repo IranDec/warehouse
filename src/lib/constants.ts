@@ -1,5 +1,5 @@
-import type { Product, InventoryTransaction, NavItem, Category, Warehouse } from './types';
-import { Home, Package, ListOrdered, Settings, Boxes, BarChart3, FileText, UploadCloud, Users } from 'lucide-react';
+import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole } from './types';
+import { Home, Package, ListOrdered, Settings, Boxes, BarChart3, FileText, UploadCloud, Users, ClipboardList } from 'lucide-react';
 
 export const APP_NAME = 'Warehouse Edge';
 
@@ -7,9 +7,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/products', label: 'Products', icon: Package },
   { href: '/inventory', label: 'Inventory', icon: ListOrdered },
+  // { href: '/material-requests', label: 'Material Requests', icon: ClipboardList }, // Will be added later
   // { href: '/reports', label: 'Reports', icon: BarChart3 },
   // { href: '/import', label: 'Import/Export', icon: UploadCloud },
-  // { href: '/users', label: 'User Management', icon: Users },
+  // { href: '/users', label: 'User Management', icon: Users }, // User management is part of settings now
   // { href: '/categories', label: 'Categories', icon: Boxes },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -38,7 +39,7 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Electronics',
     quantity: 150,
     reorderLevel: 50,
-    warehouseId: 'wh1', // Main Warehouse
+    warehouseId: 'wh1', 
     status: 'Available',
     lastUpdated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -51,7 +52,7 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Electronics',
     quantity: 35,
     reorderLevel: 25,
-    warehouseId: 'wh1', // Main Warehouse
+    warehouseId: 'wh1', 
     status: 'Low Stock',
     lastUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -63,8 +64,8 @@ export const MOCK_PRODUCTS: Product[] = [
     sku: 'GF-R-BLU',
     category: 'Raw Materials',
     quantity: 0,
-    reorderLevel: 100, // meters
-    warehouseId: 'wh2', // Textile Storage
+    reorderLevel: 100, 
+    warehouseId: 'wh2', 
     status: 'Out of Stock',
     lastUpdated: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -75,9 +76,9 @@ export const MOCK_PRODUCTS: Product[] = [
     name: 'Delta-Grade Steel Plate',
     sku: 'DG-SP-005',
     category: 'Raw Materials',
-    quantity: 5, // plates
+    quantity: 5, 
     reorderLevel: 10,
-    warehouseId: 'wh3', // Metalworks Bay
+    warehouseId: 'wh3', 
     status: 'Damaged',
     lastUpdated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -90,7 +91,7 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Finished Goods',
     quantity: 500,
     reorderLevel: 100,
-    warehouseId: 'wh4', // Shipping Hub
+    warehouseId: 'wh4', 
     status: 'Available',
     lastUpdated: new Date().toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -101,11 +102,11 @@ export const MOCK_PRODUCTS: Product[] = [
     name: 'Organic Apples',
     sku: 'ORG-APP-001',
     category: 'Perishables',
-    quantity: 200, // kg
+    quantity: 200, 
     reorderLevel: 50,
-    warehouseId: 'wh5', // Cold Storage
+    warehouseId: 'wh5', 
     status: 'Available',
-    lastUpdated: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
+    lastUpdated: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), 
     imageUrl: 'https://placehold.co/100x100.png',
     description: 'Fresh organic apples, requires temperature control.',
   },
@@ -153,7 +154,7 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
     productId: 'prod3',
     productName: 'Gamma Fabric Roll (Blue)',
     type: 'Damage',
-    quantityChange: -5, // meters
+    quantityChange: -5, 
     date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
     user: 'Warehouse Inspection',
     reason: 'Water damage',
@@ -217,4 +218,17 @@ export const PRODUCT_STATUS_OPTIONS: { value: Product['status']; label: string }
   { value: 'Damaged', label: 'Damaged' },
 ];
 
-export const ALL_FILTER_VALUE = "__ALL__"; // Added for consistency
+export const ALL_FILTER_VALUE = "__ALL__"; 
+
+// RBAC Constants
+export const USER_ROLES: UserRole[] = ['Admin', 'WarehouseManager', 'DepartmentEmployee'];
+
+export const MOCK_USERS: User[] = [
+  { id: 'user1', name: 'Alice Admin', email: 'admin@example.com', role: 'Admin', avatarFallback: 'AA' },
+  { id: 'user2', name: 'Bob Manager', email: 'manager@example.com', role: 'WarehouseManager', avatarFallback: 'BM' },
+  { id: 'user3', name: 'Charlie Tech', email: 'charlie@example.com', role: 'DepartmentEmployee', categoryAccess: 'Electronics', avatarFallback: 'CT' },
+  { id: 'user4', name: 'Diana Fabric', email: 'diana@example.com', role: 'DepartmentEmployee', categoryAccess: 'Raw Materials', avatarFallback: 'DF' },
+  { id: 'user5', name: 'Edward Goods', email: 'edward@example.com', role: 'DepartmentEmployee', categoryAccess: 'Finished Goods', avatarFallback: 'EG' },
+];
+
+export const DEFAULT_CURRENT_USER_ID = MOCK_USERS.find(u => u.role === 'Admin')?.id || MOCK_USERS[0]?.id || 'user1';

@@ -61,3 +61,15 @@ export interface BillOfMaterial {
   productId: string; // Finished product ID
   items: BillOfMaterialItem[];
 }
+
+// RBAC Types
+export type UserRole = 'Admin' | 'WarehouseManager' | 'DepartmentEmployee';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatarFallback: string;
+  categoryAccess?: string; // For DepartmentEmployee: limits access to products of this category
+}

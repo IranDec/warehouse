@@ -2,7 +2,7 @@
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,96 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/auth-context";
+import type { User, UserRole } from "@/lib/types";
+import { USER_ROLES } from "@/lib/constants";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+
+interface UserRoleEditorProps {
+  user: User;
+  onRoleChange: (userId: string, newRole: UserRole) => void;
+  currentUserRole: UserRole | undefined;
+}
+
+function UserRoleEditor({ user, onRoleChange, currentUserRole }: UserRoleEditorProps) {
+  const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleSaveRole = () => {
+    onRoleChange(user.id, selectedRole);
+    toast({ title: "Role Updated", description: `Role for ${user.name} changed to ${selectedRole}.` });
+    setIsDialogOpen(false);
+  };
+
+  // Admin can change any role. WarehouseManager can change DepartmentEmployee roles.
+  const canEditThisUserRole = 
+    currentUserRole === 'Admin' || 
+    (currentUserRole === 'WarehouseManager' && user.role === 'DepartmentEmployee');
+
+  if (!canEditThisUserRole && user.role !== currentUserRole) { // If current user cannot edit this user AND it's not their own profile (no self-edit for roles here)
+     return <span className="text-sm text-muted-foreground">{user.role}</span>; // Just display role
+  }
+   if (user.role === 'Admin' && currentUserRole !== 'Admin') { // Non-Admins cannot change Admin roles
+    return <span className="text-sm text-muted-foreground">{user.role} (Cannot change Admin)</span>;
+  }
+
+
+  return (
+    <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="sm" disabled={!canEditThisUserRole || (user.role === 'Admin' && currentUserRole !== 'Admin')} className="flex items-center gap-1">
+          {user.role} <Edit2 className="h-3 w-3" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Change Role for {user.name}</AlertDialogTitle>
+          <AlertDialogDescription>
+            Select a new role for this user. Changes will take effect immediately (simulated).
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="py-4">
+          <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select new role" />
+            </SelectTrigger>
+            <SelectContent>
+              {USER_ROLES.map(role => (
+                <SelectItem key={role} value={role} disabled={role === 'Admin' && currentUserRole !== 'Admin'}>
+                  {role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleSaveRole}>Save Role</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { currentUser, users: mockUsers, updateUserRole } = useAuth(); // users renamed to mockUsers to avoid conflict
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -24,10 +108,11 @@ export default function SettingsPage() {
   }, []);
 
   if (!mounted) {
-    // Avoid rendering UI that depends on theme until client is mounted
-    // This helps prevent hydration mismatches
     return null; 
   }
+  
+  const canManageUsers = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
+
 
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
@@ -74,12 +159,31 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>User Management</CardTitle>
-              <CardDescription>Define roles and manage user access. (Feature Placeholder)</CardDescription>
+              <CardDescription>
+                {canManageUsers 
+                  ? "Manage user roles. (Simulated: Changes are not persistent)."
+                  : "View users. You do not have permission to manage roles."}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="text-center text-muted-foreground py-10">
-              <Users className="mx-auto h-12 w-12 mb-4" />
-              <p>User and Role Management features will be available here.</p>
-              <Button variant="outline" className="mt-4">Manage Users</Button>
+            <CardContent className="space-y-4">
+              {mockUsers.map(user => (
+                <div key={user.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50">
+                  <div>
+                    <p className="font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  {canManageUsers ? (
+                    <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} />
+                  ) : (
+                    <span className="text-sm font-medium">{user.role}</span>
+                  )}
+                </div>
+              ))}
+              {!canManageUsers && (
+                <p className="text-sm text-muted-foreground text-center pt-4">
+                  Contact an Administrator to manage user roles.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -131,7 +235,7 @@ export default function SettingsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="fa">فارسی (Persian) - Coming Soon</SelectItem>
+                    <SelectItem value="fa" disabled>فارسی (Persian) - Coming Soon</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

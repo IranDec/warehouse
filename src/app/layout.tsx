@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AppShell } from '@/components/layout/app-shell';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { ThemeProvider } from "next-themes";
+import { AuthProvider } from '@/contexts/auth-context'; // Import AuthProvider
 
 export const metadata: Metadata = {
   title: 'Warehouse Edge',
@@ -26,9 +27,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SidebarProvider defaultOpen>
-            <AppShell>{children}</AppShell>
-          </SidebarProvider>
+          <AuthProvider> {/* Wrap with AuthProvider */}
+            <SidebarProvider defaultOpen>
+              <AppShell>{children}</AppShell>
+            </SidebarProvider>
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>
