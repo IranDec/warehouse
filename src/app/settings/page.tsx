@@ -1,9 +1,8 @@
-
 // src/app/settings/page.tsx
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,9 +14,10 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import type { User, UserRole, Warehouse } from "@/lib/types";
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS, MOCK_WAREHOUSES } from "@/lib/constants";
+import type { User, UserRole, Warehouse, Category } from "@/lib/types";
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS, MOCK_WAREHOUSES, MOCK_CATEGORIES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
+import { NewUserModal } from "@/components/settings/new-user-modal"; // Import the new modal
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,28 +34,45 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 interface UserRoleEditorProps {
   user: User;
-  onRoleChange: (userId: string, newRole: UserRole) => void;
+  onRoleChange: (userId: string, newRole: UserRole, newCategoryAccess?: string) => void;
   currentUserRole: UserRole | undefined;
   toast: ReturnType<typeof useToast>['toast'];
 }
 
 function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRoleEditorProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(user.categoryAccess);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  useEffect(() => {
+    setSelectedRole(user.role);
+    setSelectedCategory(user.categoryAccess);
+  }, [user, isDialogOpen]);
+
+
   const handleSaveRole = () => {
-    onRoleChange(user.id, selectedRole);
+    if (currentUserRole !== 'Admin' && selectedRole === 'Admin' && user.role !== 'Admin') {
+      toast({ title: "Permission Denied", description: "Only Admins can assign the Admin role.", variant: "destructive" });
+      return;
+    }
+    if (selectedRole === 'DepartmentEmployee' && !selectedCategory) {
+      toast({ title: "Category Required", description: "Department Employees must have a category assigned.", variant: "destructive" });
+      return;
+    }
+    onRoleChange(user.id, selectedRole, selectedRole === 'DepartmentEmployee' ? selectedCategory : undefined);
     toast({ title: "Role Updated", description: `Role for ${user.name} changed to ${selectedRole}.` });
     setIsDialogOpen(false);
   };
 
   const canEditThisUserRole =
     currentUserRole === 'Admin' ||
-    (currentUserRole === 'WarehouseManager' && user.role === 'DepartmentEmployee');
+    (currentUserRole === 'WarehouseManager' && user.role !== 'Admin' && user.role !== 'WarehouseManager');
 
-  if (!canEditThisUserRole && user.role !== currentUserRole) {
+
+  if (!canEditThisUserRole && user.id !== (useAuth().currentUser?.id)) { // Users can't edit others if no general permission
      return <span className="text-sm text-muted-foreground">{user.role}</span>;
   }
+  // Non-admins cannot edit admin roles
    if (user.role === 'Admin' && currentUserRole !== 'Admin') {
     return <span className="text-sm text-muted-foreground">{user.role} (Cannot change Admin)</span>;
   }
@@ -72,10 +89,10 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRole
         <AlertDialogHeader>
           <AlertDialogTitle>Change Role for {user.name}</AlertDialogTitle>
           <AlertDialogDescription>
-            Select a new role for this user. Changes will take effect immediately (simulated).
+            Select a new role and category access (if applicable) for this user.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="py-4">
+        <div className="py-4 space-y-4">
           <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select new role" />
@@ -88,6 +105,21 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRole
               ))}
             </SelectContent>
           </Select>
+          {selectedRole === 'DepartmentEmployee' && (
+            <div>
+                <Label htmlFor="category-access-edit" className="mb-1 block">Category Access</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger id="category-access-edit" className="w-full">
+                        <SelectValue placeholder="Select category access" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {MOCK_CATEGORIES.map(cat => (
+                            <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+          )}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -103,7 +135,8 @@ export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { currentUser, users: mockUsers, updateUserRole } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const { toast } = useToast();
+  const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
+  const { toast } = useToast(); // Moved toast here
 
   useEffect(() => {
     setMounted(true);
@@ -161,13 +194,20 @@ export default function SettingsPage() {
 
         <TabsContent value="users">
           <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                {canManageUsers
-                  ? "Manage user roles. (Simulated: Changes are not persistent)."
-                  : "View users. You do not have permission to manage roles."}
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>User Management</CardTitle>
+                <CardDescription>
+                  {canManageUsers
+                    ? "Manage user roles. (Simulated: Changes are not persistent)."
+                    : "View users. You do not have permission to manage roles."}
+                </CardDescription>
+              </div>
+              {canManageUsers && (
+                <Button onClick={() => setIsNewUserModalOpen(true)}>
+                  <UserPlus className="mr-2 h-4 w-4" /> Add New User
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {mockUsers.map(user => (
@@ -175,6 +215,9 @@ export default function SettingsPage() {
                   <div>
                     <p className="font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
+                    {user.role === 'DepartmentEmployee' && user.categoryAccess && (
+                         <p className="text-xs text-muted-foreground">Category: {user.categoryAccess}</p>
+                    )}
                   </div>
                   {canManageUsers ? (
                     <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toast={toast} />
@@ -346,7 +389,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      <NewUserModal isOpen={isNewUserModalOpen} onClose={() => setIsNewUserModalOpen(false)} />
     </div>
   );
 }
-

@@ -1,15 +1,16 @@
 // src/contexts/auth-context.tsx
 "use client";
 
-import type { User } from '@/lib/types';
-import { MOCK_USERS, DEFAULT_CURRENT_USER_ID } from '@/lib/constants';
+import type { User, UserRole } from '@/lib/types';
+import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES } from '@/lib/constants';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface AuthContextType {
   currentUser: User | null;
   setCurrentUserById: (userId: string) => void;
-  users: User[]; // To manage users for role changes in settings
-  updateUserRole: (userId: string, newRole: User['role']) => void; // For settings page
+  users: User[];
+  updateUserRole: (userId: string, newRole: User['role'], newCategoryAccess?: string) => void;
+  addNewUser: (userData: Omit<User, 'id' | 'avatarFallback' | 'role'> & { role: UserRole }) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,16 +21,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null;
   });
 
-  // Effect to update currentUser if users list changes (e.g. role update) and current user is affected
   useEffect(() => {
     if (currentUser) {
       const updatedCurrentUser = users.find(u => u.id === currentUser.id);
-      if (updatedCurrentUser && updatedCurrentUser.role !== currentUser.role) {
+      if (updatedCurrentUser && (updatedCurrentUser.role !== currentUser.role || updatedCurrentUser.categoryAccess !== currentUser.categoryAccess)) {
         setCurrentUser(updatedCurrentUser);
-      } else if (!updatedCurrentUser) { // Current user was somehow removed (not planned for this sim)
+      } else if (!updatedCurrentUser) {
         setCurrentUser(users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null);
       }
-    } else if (users.length > 0) { // If no current user but users exist
+    } else if (users.length > 0) {
        setCurrentUser(users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null);
     }
   }, [users, currentUser?.id]);
@@ -40,16 +40,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(user || null);
   };
 
-  const updateUserRole = (userId: string, newRole: User['role']) => {
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
-        user.id === userId ? { ...user, role: newRole } : user
+  const updateUserRole = (userId: string, newRole: UserRole, newCategoryAccess?: string) => {
+    setUsers(prevUsers =>
+      prevUsers.map(user =>
+        user.id === userId ? { ...user, role: newRole, categoryAccess: newRole === 'DepartmentEmployee' ? newCategoryAccess : undefined } : user
       )
     );
   };
 
+  const addNewUser = (userData: Omit<User, 'id' | 'avatarFallback' | 'role'> & { role: UserRole }) => {
+    const newUser: User = {
+      ...userData,
+      id: `user${Date.now()}`, // Simple unique ID for mock
+      avatarFallback: (userData.name || 'N A').split(' ').map(n => n[0]).join('').toUpperCase(),
+      categoryAccess: userData.role === 'DepartmentEmployee' ? userData.categoryAccess : undefined,
+    };
+    setUsers(prevUsers => [...prevUsers, newUser]);
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, setCurrentUserById, users, updateUserRole }}>
+    <AuthContext.Provider value={{ currentUser, setCurrentUserById, users, updateUserRole, addNewUser }}>
       {children}
     </AuthContext.Provider>
   );
