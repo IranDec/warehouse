@@ -16,7 +16,7 @@ import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import type { User, UserRole, Warehouse, Category, NotificationSetting, NotificationChannel } from '@/lib/types';
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS } from '@/lib/constants'; // MOCK_NOTIFICATION_SETTINGS removed
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS } from '@/lib/constants'; 
 import { useToast } from '@/hooks/use-toast';
 import { NewUserModal } from "@/components/settings/new-user-modal";
 import { NewCategoryModal } from "@/components/settings/new-category-modal";
@@ -177,7 +177,7 @@ export default function SettingsPage() {
     currentUser, users: mockUsers, updateUserRole, 
     categories, addCategory, 
     warehouses, addWarehouse, updateWarehouse,
-    notificationSettings, deleteNotificationSetting
+    notificationSettings, deleteNotificationSetting, addNotificationSetting, updateNotificationSetting
   } = useAuth();
   const { toast } = useToast();
   
@@ -190,11 +190,20 @@ export default function SettingsPage() {
   const [isNewEditNotificationModalOpen, setIsNewEditNotificationModalOpen] = useState(false);
   const [editingNotificationSetting, setEditingNotificationSetting] = useState<NotificationSetting | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<NotificationSetting | null>(null);
+  
+  const [appName, setAppName] = useState("Warehouse Edge");
 
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleSaveGeneralSettings = () => {
+    toast({
+        title: "General Settings Saved (Simulated)",
+        description: `Application name set to "${appName}". Theme preference is managed separately.`
+    });
+  };
 
   if (!mounted) {
     return null;
@@ -233,10 +242,10 @@ export default function SettingsPage() {
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 h-auto p-1">
           <TabsTrigger value="general" className="text-xs sm:text-sm"><Palette className="mr-1 h-4 w-4 hidden sm:inline-flex" /> General</TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Users & Roles</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Users &amp; Roles</TabsTrigger>
           <TabsTrigger value="categories" className="text-xs sm:text-sm"><Tag className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Categories</TabsTrigger>
           <TabsTrigger value="warehouses" className="text-xs sm:text-sm"><WarehouseIcon className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Warehouses</TabsTrigger>
-          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations & BOM</TabsTrigger>
+          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations &amp; BOM</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm"><Bell className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Notifications</TabsTrigger>
           <TabsTrigger value="language" className="text-xs sm:text-sm"><Globe className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Language</TabsTrigger>
         </TabsList>
@@ -250,7 +259,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="appName">Application Name</Label>
-                <Input id="appName" defaultValue="Warehouse Edge" />
+                <Input id="appName" value={appName} onChange={(e) => setAppName(e.target.value)} />
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
@@ -260,7 +269,7 @@ export default function SettingsPage() {
                 />
                 <Label htmlFor="dark-mode">Enable Dark Mode</Label>
               </div>
-              <Button onClick={() => toast({title: "Simulated Save", description: "General settings save action clicked."})}>Save Changes</Button>
+              <Button onClick={handleSaveGeneralSettings}>Save Changes</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -269,7 +278,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
               <div>
-                <CardTitle>User & Role Management</CardTitle>
+                <CardTitle>User &amp; Role Management</CardTitle>
                 <CardDescription>
                   Manage user accounts and assign roles. Role definitions and granular permissions are managed by system administrators via backend configurations.
                 </CardDescription>
@@ -449,7 +458,7 @@ export default function SettingsPage() {
         <TabsContent value="integrations">
           <Card>
             <CardHeader>
-              <CardTitle>CMS Integrations & Bill of Materials (BOM)</CardTitle>
+              <CardTitle>CMS Integrations &amp; Bill of Materials (BOM)</CardTitle>
               <CardDescription>Connect with e-commerce platforms and manage product compositions.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -598,7 +607,7 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
-               <p className="text-sm text-muted-foreground">Multi-language support (English & Persian) is planned.</p>
+               <p className="text-sm text-muted-foreground">Multi-language support (English &amp; Persian) is planned.</p>
               <Button onClick={() => toast({title: "Simulated Save", description: "Language settings save action clicked."})}>Save Language</Button>
             </CardContent>
           </Card>
@@ -613,6 +622,8 @@ export default function SettingsPage() {
           setEditingWarehouse(null);
         }}
         existingWarehouse={editingWarehouse}
+        addWarehouse={addWarehouse}
+        updateWarehouse={updateWarehouse}
       />
       <NewEditNotificationSettingModal
         isOpen={isNewEditNotificationModalOpen}
@@ -621,6 +632,8 @@ export default function SettingsPage() {
             setEditingNotificationSetting(null);
         }}
         existingSetting={editingNotificationSetting}
+        addNotificationSetting={addNotificationSetting}
+        updateNotificationSetting={updateNotificationSetting}
       />
       {showDeleteConfirm && (
         <AlertDialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
@@ -646,3 +659,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

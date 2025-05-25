@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { useAuth } from '@/contexts/auth-context';
+// import { useAuth } from '@/contexts/auth-context'; // No longer needed directly
 import { useToast } from '@/hooks/use-toast';
 import type { Warehouse } from '@/lib/types';
 
@@ -34,10 +34,17 @@ interface NewEditWarehouseModalProps {
   isOpen: boolean;
   onClose: () => void;
   existingWarehouse?: Warehouse | null;
+  addWarehouse: (data: Omit<Warehouse, 'id'>) => void; // Passed from SettingsPage
+  updateWarehouse: (data: Warehouse) => void; // Passed from SettingsPage
 }
 
-export function NewEditWarehouseModal({ isOpen, onClose, existingWarehouse }: NewEditWarehouseModalProps) {
-  const { addWarehouse, updateWarehouse } = useAuth();
+export function NewEditWarehouseModal({ 
+    isOpen, 
+    onClose, 
+    existingWarehouse, 
+    addWarehouse, 
+    updateWarehouse 
+}: NewEditWarehouseModalProps) {
   const { toast } = useToast();
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<WarehouseFormData>({
@@ -70,7 +77,8 @@ export function NewEditWarehouseModal({ isOpen, onClose, existingWarehouse }: Ne
       updateWarehouse({ ...existingWarehouse, ...data });
       toast({ title: "Warehouse Updated", description: `${data.name} has been updated.` });
     } else {
-      addWarehouse(data);
+      const { id, ...warehouseToAdd } = data; // remove id if present
+      addWarehouse(warehouseToAdd);
       toast({ title: "Warehouse Added", description: `${data.name} has been added.` });
     }
     onClose();
@@ -117,3 +125,4 @@ export function NewEditWarehouseModal({ isOpen, onClose, existingWarehouse }: Ne
     </Dialog>
   );
 }
+

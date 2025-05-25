@@ -7,10 +7,10 @@ import { PageHeader } from "@/components/common/page-header";
 import { DateRangePicker } from "@/components/common/date-range-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE } from '@/lib/constants';
-import type { InventoryTransaction, Product, Category } from '@/lib/types'; // Removed Warehouse
-import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon } from "lucide-react";
+import type { InventoryTransaction, Product, Category, InventoryTransactionType } from '@/lib/types';
+import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon, AlertTriangle } from "lucide-react";
 import type { DateRange } from 'react-day-picker';
-import { addDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { DataTable } from "@/components/common/data-table";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,7 +32,7 @@ import {
   Cell,
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
-
+import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 
 interface ReportStat {
   totalQuantity: number;
@@ -161,7 +161,7 @@ export default function ReportsPage() {
           productStat.totalDamaged += Math.abs(transaction.quantityChange);
           break;
         case 'Return':
-          productStat.totalReturned += transaction.quantityChange;
+          productStat.totalReturned += transaction.quantityChange; // Returns are positive quantity changes
           break;
       }
     });
@@ -205,6 +205,55 @@ export default function ReportsPage() {
     },
   ];
 
+  const defectReturnTransactions = useMemo(() => {
+    return filteredTransactions.filter(t => t.type === 'Damage' || t.type === 'Return');
+  }, [filteredTransactions]);
+
+  const defectReturnColumns: ColumnDef<InventoryTransaction>[] = [
+    { 
+        accessorKey: "productName", 
+        header: "Product Name",
+        cell: ({ row }) => <div className="font-medium">{row.original.productName}</div>
+    },
+    { 
+        accessorKey: "type", 
+        header: "Type",
+        cell: ({ row }) => (
+            <Badge variant={row.original.type === 'Damage' ? 'destructive' : 'secondary'} 
+                   className={row.original.type === 'Damage' ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-800/30 dark:text-red-300 dark:border-red-700' : 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-800/30 dark:text-blue-300 dark:border-blue-700'}>
+                {row.original.type}
+            </Badge>
+        )
+    },
+    { 
+        accessorKey: "quantityChange", 
+        header: "Quantity",
+        cell: ({ row }) => {
+            const quantity = row.original.quantityChange;
+            const type = row.original.type;
+            if (type === 'Damage') return <span className="text-red-600">{quantity}</span>; // Damage is already negative
+            if (type === 'Return') return <span className="text-green-600">+{quantity}</span>; // Return is positive
+            return <span>{quantity}</span>;
+        }
+    },
+    { 
+        accessorKey: "date", 
+        header: "Date",
+        cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.date} formatString="PP" />
+    },
+    { accessorKey: "user", header: "User/System" },
+    { 
+        accessorKey: "reason", 
+        header: "Reason/Notes",
+        cell: ({ row }) => <div className="max-w-[200px] truncate" title={row.original.reason}>{row.original.reason || 'N/A'}</div>
+    },
+    { 
+        accessorKey: "warehouseName", 
+        header: "Warehouse",
+        cell: ({ row }) => row.original.warehouseName || warehouses.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A'
+    },
+  ];
+
   const barChartData = useMemo(() => {
     return productBreakdown.map(item => ({
       name: item.productName.length > 15 ? `${item.productName.substring(0,15)}...` : item.productName, 
@@ -242,7 +291,7 @@ export default function ReportsPage() {
     { accessorKey: "sku", header: "SKU" },
     { accessorKey: "category", header: "Category" },
     { accessorKey: "warehouseId", header: "Warehouse", cell: ({row}) => warehouses.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A' },
-    { accessorKey: "quantity", header: "Current Qty" },
+    { accessorKey: "quantity", header: "Current Qty", cell: ({row}) => <span className="font-semibold text-red-600">{row.original.quantity}</span> },
     { accessorKey: "reorderLevel", header: "Reorder Lvl" },
     { 
       accessorKey: "status", 
@@ -253,8 +302,8 @@ export default function ReportsPage() {
         if (status === "Low Stock") badgeVariant = "outline";
         if (status === "Out of Stock" || status === "Damaged") badgeVariant = "destructive";
         return <Badge variant={badgeVariant} className={
-          status === 'Low Stock' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-          status === 'Available' ? 'bg-green-100 text-green-800 border-green-300' : ''
+          status === 'Low Stock' ? 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-800/30 dark:text-yellow-300 dark:border-yellow-700' :
+          status === 'Available' ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-800/30 dark:text-green-300 dark:border-green-700' : ''
         }>{status}</Badge>;
       },
     },
@@ -457,6 +506,20 @@ export default function ReportsPage() {
           )}
         </CardContent>
       </Card>
+      
+      <Card className="mt-6 shadow-md">
+        <CardHeader>
+            <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-yellow-500" /> Defect &amp; Return Report</CardTitle>
+            <CardDescription>Details of items marked as damaged or returned within the selected filters.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {defectReturnTransactions.length > 0 ? (
+                <DataTable columns={defectReturnColumns} data={defectReturnTransactions} filterColumn="productName" filterInputPlaceholder="Filter by product name..." />
+            ) : (
+                <p className="text-center text-muted-foreground py-8">No damaged or returned items found for the selected filters.</p>
+            )}
+        </CardContent>
+      </Card>
 
       <Card className="mt-6 shadow-md">
         <CardHeader>
@@ -475,3 +538,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

@@ -20,11 +20,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useAuth } from '@/contexts/auth-context';
+// import { useAuth } from '@/contexts/auth-context'; // No longer needed directly
 import { useToast } from '@/hooks/use-toast';
 import type { NotificationSetting, NotificationChannel, Product } from '@/lib/types';
-import { NOTIFICATION_CHANNELS } from '@/lib/types'; // Corrected import path
-import { MOCK_PRODUCTS } from '@/lib/constants'; // MOCK_PRODUCTS for product selection
+import { NOTIFICATION_CHANNELS } from '@/lib/types'; 
+import { MOCK_PRODUCTS } from '@/lib/constants'; 
 
 const notificationSettingSchema = z.object({
   id: z.string().optional(),
@@ -44,12 +44,19 @@ interface NewEditNotificationSettingModalProps {
   isOpen: boolean;
   onClose: () => void;
   existingSetting?: NotificationSetting | null;
+  addNotificationSetting: (data: Omit<NotificationSetting, 'id'>) => void; // Passed from SettingsPage
+  updateNotificationSetting: (data: NotificationSetting) => void; // Passed from SettingsPage
 }
 
-export function NewEditNotificationSettingModal({ isOpen, onClose, existingSetting }: NewEditNotificationSettingModalProps) {
-  const { addNotificationSetting, updateNotificationSetting } = useAuth();
+export function NewEditNotificationSettingModal({ 
+    isOpen, 
+    onClose, 
+    existingSetting,
+    addNotificationSetting,
+    updateNotificationSetting
+}: NewEditNotificationSettingModalProps) {
   const { toast } = useToast();
-  const products: Product[] = MOCK_PRODUCTS; // Using mock products for now
+  const products: Product[] = MOCK_PRODUCTS; 
 
   const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<NotificationSettingFormData>({
     resolver: zodResolver(notificationSettingSchema),
@@ -94,6 +101,8 @@ export function NewEditNotificationSettingModal({ isOpen, onClose, existingSetti
     if (watchedProductId) {
       const selectedProduct = products.find(p => p.id === watchedProductId);
       setValue("productName", selectedProduct?.name || '');
+    } else {
+        setValue("productName", '');
     }
   }, [watchedProductId, products, setValue]);
 
@@ -101,14 +110,15 @@ export function NewEditNotificationSettingModal({ isOpen, onClose, existingSetti
     const product = products.find(p => p.id === data.productId);
     const settingToSave: Omit<NotificationSetting, 'id'> & { id?: string } = {
       ...data,
-      productName: product?.name || data.productId, // Ensure product name is set
+      productName: product?.name || data.productId, 
     };
 
     if (existingSetting) {
-      updateNotificationSetting({ ...existingSetting, ...settingToSave });
+      updateNotificationSetting({ ...existingSetting, ...settingToSave, id: existingSetting.id });
       toast({ title: "Notification Setting Updated", description: `Rule for ${settingToSave.productName} updated.` });
     } else {
-      addNotificationSetting(settingToSave as Omit<NotificationSetting, 'id'>);
+      const {id, ...settingToAdd} = settingToSave; // remove id if present for new settings
+      addNotificationSetting(settingToAdd as Omit<NotificationSetting, 'id'>);
       toast({ title: "Notification Setting Added", description: `New rule for ${settingToSave.productName} added.` });
     }
     onClose();
@@ -220,3 +230,4 @@ export function NewEditNotificationSettingModal({ isOpen, onClose, existingSetti
     </Dialog>
   );
 }
+
