@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DateRangePicker } from '@/components/common/date-range-picker';
 import type { DateRange } from 'react-day-picker';
-import { addDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { addDays, startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
 import { cn } from "@/lib/utils";
 
 
@@ -166,13 +166,13 @@ export default function MaterialRequestsPage() {
 
 
       let userSpecificFilter = true;
-      if (currentUser?.role === 'DepartmentEmployee') {
+      if (currentUser?.role === 'DepartmentEmployee' && !canManageRequests) { // Ensure managers see all
         userSpecificFilter = request.requesterId === currentUser.id;
       }
 
       return statusMatch && requesterMatch && departmentMatch && submissionDateMatch && userSpecificFilter;
     });
-  }, [requests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate]);
+  }, [requests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate, canManageRequests]);
   
   const clearAllFilters = () => {
     setFilterStatus(ALL_FILTER_VALUE);
@@ -231,18 +231,22 @@ export default function MaterialRequestsPage() {
     {
       accessorKey: "submissionDate",
       header: "Submitted On",
-      cell: ({ row }) => new Date(row.original.submissionDate).toLocaleDateString(),
+      cell: ({ row }) => format(new Date(row.original.submissionDate), "PP"),
     },
     {
-        accessorKey: "approverName",
-        header: "Approver/Notes",
+        id: "approverAction",
+        header: "Approver/Action Info",
         cell: ({ row }) => {
-            const { approverName, approverNotes, status } = row.original;
-            if (status === 'Pending' || (status === 'Cancelled' && !approverName)) return <span className="text-xs text-muted-foreground">N/A</span>;
+            const { approverName, approverNotes, status, actionDate } = row.original;
+            if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate)) {
+                 return <span className="text-xs text-muted-foreground">N/A</span>;
+            }
             return (
                 <div className="text-xs">
                     {approverName && <p className="font-medium">{approverName}</p>}
+                    {actionDate && <p className="text-muted-foreground">{format(new Date(actionDate), "PPp")}</p>}
                     {approverNotes && <p className="text-muted-foreground truncate max-w-[150px]" title={approverNotes}>{approverNotes}</p>}
+                    {status === 'Cancelled' && !approverName && actionDate && <p className="text-muted-foreground">Cancelled by requester</p>}
                 </div>
             )
         }
@@ -332,7 +336,7 @@ export default function MaterialRequestsPage() {
              <Select 
                 value={filterRequester} 
                 onValueChange={(value) => setFilterRequester(value)}
-                disabled={currentUser?.role === 'DepartmentEmployee'}
+                disabled={currentUser?.role === 'DepartmentEmployee' && !canManageRequests}
             >
               <SelectTrigger className="w-full md:w-[200px] h-9">
                 <SelectValue placeholder="All Requesters" />
@@ -345,10 +349,10 @@ export default function MaterialRequestsPage() {
             <Select 
                 value={filterDepartment} 
                 onValueChange={(value) => setFilterDepartment(value)}
-                disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess}
+                disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess && !canManageRequests}
             >
               <SelectTrigger className="w-full md:w-[200px] h-9">
-                <SelectValue placeholder={currentUser?.role === 'DepartmentEmployee' && currentUser.categoryAccess ? currentUser.categoryAccess : "All Departments"} />
+                <SelectValue placeholder={currentUser?.role === 'DepartmentEmployee' && currentUser.categoryAccess && !canManageRequests ? currentUser.categoryAccess : "All Departments"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>All Departments</SelectItem>
@@ -394,8 +398,14 @@ export default function MaterialRequestsPage() {
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setShowCancelConfirm(null)}>No, keep request</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => handleAction(showCancelConfirm.id, 'Cancelled')}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                     if (showCancelConfirm?.requesterId === currentUser?.id) {
+                        handleAction(showCancelConfirm.id, 'Cancelled');
+                    } else {
+                        toast({ title: "Permission Denied", description: "Only the requester can cancel this request.", variant: "destructive"});
+                    }
+                }}
+                className="bg-orange-600 text-orange-50 hover:bg-orange-700"
               >
                 Yes, Cancel Request
               </AlertDialogAction>
@@ -407,3 +417,4 @@ export default function MaterialRequestsPage() {
   );
 }
 
+  
