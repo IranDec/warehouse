@@ -36,6 +36,16 @@ export default function MaterialRequestsPage() {
   const canCreateRequests = currentUser?.role === 'DepartmentEmployee';
   const canManageRequests = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
 
+  const pageDescription = useMemo(() => {
+    if (canManageRequests) {
+      return "Review, approve, or reject material requests submitted by departments.";
+    }
+    if (canCreateRequests) {
+      return "Submit new requests for raw materials and components for your department. You can also view and edit your pending requests.";
+    }
+    return "View material requests. Contact an administrator for more permissions.";
+  }, [canManageRequests, canCreateRequests]);
+
   const handleAddNewRequest = (newRequest: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
     if (!currentUser) return;
     const fullNewRequest: MaterialRequest = {
@@ -57,7 +67,10 @@ export default function MaterialRequestsPage() {
   }
 
   const handleAction = (requestId: string, newStatus: MaterialRequestStatus, notes?: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !canManageRequests) { // Ensure only managers can perform actions
+        toast({ title: "Permission Denied", description: "You do not have permission to perform this action.", variant: "destructive"});
+        return;
+    }
     setRequests(prevRequests =>
       prevRequests.map(req =>
         req.id === requestId
@@ -137,37 +150,63 @@ export default function MaterialRequestsPage() {
       id: "actions",
       cell: ({ row }) => {
         const request = row.original;
-        if (!canManageRequests || request.status !== 'Pending') {
-          return null; // Or a view details button for all roles
+        const isRequester = currentUser?.id === request.requesterId;
+
+        if (canManageRequests && request.status === 'Pending') {
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Manager Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => handleAction(request.id, 'Approved')}>
+                  <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  const reason = prompt('Reason for rejection (optional):');
+                  // Check if prompt was cancelled (null) or empty string was submitted
+                  if (reason !== null) { // Proceed if not cancelled
+                    handleAction(request.id, 'Rejected', reason || undefined);
+                  }
+                }}>
+                  <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reject
+                </DropdownMenuItem>
+                {isRequester && ( // Manager can also be requester
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setEditingRequest(request); setIsModalOpen(true); }}>
+                      <Edit className="mr-2 h-4 w-4" /> Edit Request
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
         }
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => handleAction(request.id, 'Approved')}>
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { /* Open a small dialog for rejection reason */ handleAction(request.id, 'Rejected', prompt('Reason for rejection (optional):') || undefined)}}>
-                <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reject
-              </DropdownMenuItem>
-               {/* Add edit for pending requests if submitter */}
-              {currentUser?.id === request.requesterId && request.status === 'Pending' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { setEditingRequest(request); setIsModalOpen(true); }}>
+        
+        if (isRequester && request.status === 'Pending') {
+           return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                 <DropdownMenuLabel>Requester Actions</DropdownMenuLabel>
+                 <DropdownMenuItem onClick={() => { setEditingRequest(request); setIsModalOpen(true); }}>
                     <Edit className="mr-2 h-4 w-4" /> Edit Request
                   </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
+              </DropdownMenuContent>
+            </DropdownMenu>
+           );
+        }
+        return null;
       },
     },
   ];
@@ -178,7 +217,7 @@ export default function MaterialRequestsPage() {
       <PageHeader
         title="Material Requests"
         icon={ClipboardList}
-        description="Submit and manage requests for raw materials and components."
+        description={pageDescription}
         actions={
           canCreateRequests ? (
             <Button onClick={() => {setEditingRequest(null); setIsModalOpen(true)}}>
@@ -229,3 +268,4 @@ export default function MaterialRequestsPage() {
     </div>
   );
 }
+
