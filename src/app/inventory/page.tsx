@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
 import type { InventoryTransaction, InventoryTransactionType, Product, Warehouse } from '@/lib/types';
-import { ListOrdered, Filter, Package } from 'lucide-react';
+import { ListOrdered, Filter, Package, User as UserIcon } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import { DateRangePicker } from '@/components/common/date-range-picker';
 import type { DateRange } from 'react-day-picker';
@@ -22,23 +22,30 @@ export default function InventoryPage() {
   const [filterProduct, setFilterProduct] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterWarehouse, setFilterWarehouse] = useState<string>('');
+  const [filterUser, setFilterUser] = useState<string>('');
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
   });
+
+  const uniqueUsers = useMemo(() => {
+    const users = new Set(transactions.map(t => t.user));
+    return Array.from(users).sort();
+  }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
       const productMatch = filterProduct ? transaction.productId === filterProduct : true;
       const typeMatch = filterType ? transaction.type === filterType : true;
       const warehouseMatch = filterWarehouse ? transaction.warehouseId === filterWarehouse : true;
+      const userMatch = filterUser ? transaction.user === filterUser : true;
       const date = new Date(transaction.date);
       const dateMatch = dateRange?.from && dateRange?.to 
         ? date >= dateRange.from && date <= dateRange.to 
         : true;
-      return productMatch && typeMatch && warehouseMatch && dateMatch;
+      return productMatch && typeMatch && warehouseMatch && userMatch && dateMatch;
     });
-  }, [transactions, filterProduct, filterType, filterWarehouse, dateRange]);
+  }, [transactions, filterProduct, filterType, filterWarehouse, filterUser, dateRange]);
 
   const columns: ColumnDef<InventoryTransaction>[] = [
     {
@@ -69,6 +76,14 @@ export default function InventoryPage() {
     { accessorKey: "user", header: "User/System" },
     { accessorKey: "reason", header: "Reason/Notes" },
   ];
+  
+  const clearAllFilters = () => {
+    setFilterProduct('');
+    setFilterType('');
+    setFilterWarehouse('');
+    setFilterUser('');
+    setDateRange({ from: addDays(new Date(), -30), to: new Date() });
+  };
 
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
@@ -81,6 +96,7 @@ export default function InventoryPage() {
 
       <div className="space-y-4 pt-2">
         <div className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           <Select 
             value={filterProduct} 
             onValueChange={(value) => setFilterProduct(value === ALL_FILTER_VALUE ? "" : value)}
@@ -117,8 +133,19 @@ export default function InventoryPage() {
               {MOCK_WAREHOUSES.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-          <Button variant="ghost" onClick={() => { setFilterProduct(''); setFilterType(''); setFilterWarehouse(''); setDateRange({ from: addDays(new Date(), -30), to: new Date() }); }} className="h-9">
+          <Select
+            value={filterUser}
+            onValueChange={(value) => setFilterUser(value === ALL_FILTER_VALUE ? "" : value)}
+          >
+            <SelectTrigger className="w-full md:w-[200px] h-9">
+              <SelectValue placeholder="All Users/Systems" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_FILTER_VALUE}>All Users/Systems</SelectItem>
+              {uniqueUsers.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" onClick={clearAllFilters} className="h-9">
             <Filter className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>
