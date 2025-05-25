@@ -1,16 +1,18 @@
-import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole } from './types';
+
+import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole, MaterialRequest, MaterialRequestStatus } from './types';
 import { Home, Package, ListOrdered, Settings, Boxes, BarChart3, FileText, UploadCloud, Users, ClipboardList } from 'lucide-react';
 
 export const APP_NAME = 'Warehouse Edge';
+export const ALL_FILTER_VALUE = "__ALL__";
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/products', label: 'Products', icon: Package },
-  { href: '/inventory', label: 'Inventory', icon: ListOrdered },
-  // { href: '/material-requests', label: 'Material Requests', icon: ClipboardList }, // Will be added later
+  { href: '/inventory', label: 'Inventory Ledger', icon: ListOrdered },
+  { href: '/material-requests', label: 'Material Requests', icon: ClipboardList },
   // { href: '/reports', label: 'Reports', icon: BarChart3 },
   // { href: '/import', label: 'Import/Export', icon: UploadCloud },
-  // { href: '/users', label: 'User Management', icon: Users }, // User management is part of settings now
+  // { href: '/users', label: 'User Management', icon: Users },
   // { href: '/categories', label: 'Categories', icon: Boxes },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -39,7 +41,7 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Electronics',
     quantity: 150,
     reorderLevel: 50,
-    warehouseId: 'wh1', 
+    warehouseId: 'wh1',
     status: 'Available',
     lastUpdated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -52,7 +54,7 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Electronics',
     quantity: 35,
     reorderLevel: 25,
-    warehouseId: 'wh1', 
+    warehouseId: 'wh1',
     status: 'Low Stock',
     lastUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -64,8 +66,8 @@ export const MOCK_PRODUCTS: Product[] = [
     sku: 'GF-R-BLU',
     category: 'Raw Materials',
     quantity: 0,
-    reorderLevel: 100, 
-    warehouseId: 'wh2', 
+    reorderLevel: 100,
+    warehouseId: 'wh2',
     status: 'Out of Stock',
     lastUpdated: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -76,9 +78,9 @@ export const MOCK_PRODUCTS: Product[] = [
     name: 'Delta-Grade Steel Plate',
     sku: 'DG-SP-005',
     category: 'Raw Materials',
-    quantity: 5, 
+    quantity: 5,
     reorderLevel: 10,
-    warehouseId: 'wh3', 
+    warehouseId: 'wh3',
     status: 'Damaged',
     lastUpdated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -91,7 +93,7 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Finished Goods',
     quantity: 500,
     reorderLevel: 100,
-    warehouseId: 'wh4', 
+    warehouseId: 'wh4',
     status: 'Available',
     lastUpdated: new Date().toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -102,11 +104,11 @@ export const MOCK_PRODUCTS: Product[] = [
     name: 'Organic Apples',
     sku: 'ORG-APP-001',
     category: 'Perishables',
-    quantity: 200, 
+    quantity: 200,
     reorderLevel: 50,
-    warehouseId: 'wh5', 
+    warehouseId: 'wh5',
     status: 'Available',
-    lastUpdated: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), 
+    lastUpdated: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
     description: 'Fresh organic apples, requires temperature control.',
   },
@@ -154,7 +156,7 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
     productId: 'prod3',
     productName: 'Gamma Fabric Roll (Blue)',
     type: 'Damage',
-    quantityChange: -5, 
+    quantityChange: -5,
     date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
     user: 'Warehouse Inspection',
     reason: 'Water damage',
@@ -218,9 +220,6 @@ export const PRODUCT_STATUS_OPTIONS: { value: Product['status']; label: string }
   { value: 'Damaged', label: 'Damaged' },
 ];
 
-export const ALL_FILTER_VALUE = "__ALL__"; 
-
-// RBAC Constants
 export const USER_ROLES: UserRole[] = ['Admin', 'WarehouseManager', 'DepartmentEmployee'];
 
 export const MOCK_USERS: User[] = [
@@ -229,6 +228,58 @@ export const MOCK_USERS: User[] = [
   { id: 'user3', name: 'Charlie Tech', email: 'charlie@example.com', role: 'DepartmentEmployee', categoryAccess: 'Electronics', avatarFallback: 'CT' },
   { id: 'user4', name: 'Diana Fabric', email: 'diana@example.com', role: 'DepartmentEmployee', categoryAccess: 'Raw Materials', avatarFallback: 'DF' },
   { id: 'user5', name: 'Edward Goods', email: 'edward@example.com', role: 'DepartmentEmployee', categoryAccess: 'Finished Goods', avatarFallback: 'EG' },
+  { id: 'user6', name: 'Fiona Food', email: 'fiona@example.com', role: 'DepartmentEmployee', categoryAccess: 'Perishables', avatarFallback: 'FF' },
 ];
 
 export const DEFAULT_CURRENT_USER_ID = MOCK_USERS.find(u => u.role === 'Admin')?.id || MOCK_USERS[0]?.id || 'user1';
+
+export const MATERIAL_REQUEST_STATUS_OPTIONS: { value: MaterialRequestStatus; label: string }[] = [
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Approved', label: 'Approved' },
+    { value: 'Rejected', label: 'Rejected' },
+    { value: 'Completed', label: 'Completed' },
+    { value: 'Cancelled', label: 'Cancelled' },
+];
+
+export const MOCK_MATERIAL_REQUESTS: MaterialRequest[] = [
+  {
+    id: 'mr001',
+    requesterId: 'user3', // Charlie Tech
+    requesterName: 'Charlie Tech',
+    departmentCategory: 'Electronics',
+    items: [{ productId: 'prod1', productName: 'Alpha-Core Processor', quantity: 20 }],
+    reasonForRequest: 'Project Tesla - Phase 1',
+    requestedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    status: 'Pending',
+    submissionDate: new Date().toISOString(),
+  },
+  {
+    id: 'mr002',
+    requesterId: 'user4', // Diana Fabric
+    requesterName: 'Diana Fabric',
+    departmentCategory: 'Raw Materials',
+    items: [{ productId: 'prod3', productName: 'Gamma Fabric Roll (Blue)', quantity: 5 }],
+    reasonForRequest: 'New clothing line samples',
+    requestedDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    status: 'Approved',
+    submissionDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    approverId: 'user2', // Bob Manager
+    approverName: 'Bob Manager',
+    actionDate: new Date().toISOString(),
+  },
+  {
+    id: 'mr003',
+    requesterId: 'user3', // Charlie Tech
+    requesterName: 'Charlie Tech',
+    departmentCategory: 'Electronics',
+    items: [{ productId: 'prod2', productName: 'Beta-Series RAM Module (16GB)', quantity: 50 }],
+    reasonForRequest: 'Urgent restock for server maintenance',
+    requestedDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+    status: 'Rejected',
+    submissionDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    approverId: 'user2', // Bob Manager
+    approverName: 'Bob Manager',
+    approverNotes: 'Stock level too low for this quantity. Please request a smaller amount or wait for restock.',
+    actionDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];

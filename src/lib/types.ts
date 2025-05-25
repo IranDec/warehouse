@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export type ProductStatus = 'Available' | 'Low Stock' | 'Out of Stock' | 'Damaged';
@@ -21,7 +22,7 @@ export interface Product {
   category: string; // Category Name, ideally should be Category ID
   quantity: number;
   reorderLevel: number;
-  warehouseId: string; 
+  warehouseId: string;
   status: ProductStatus;
   lastUpdated: string; // ISO date string
   imageUrl?: string;
@@ -33,15 +34,15 @@ export type InventoryTransactionType = 'Inflow' | 'Outflow' | 'Return' | 'Damage
 export interface InventoryTransaction {
   id: string;
   productId: string;
-  productName: string; 
+  productName: string;
   type: InventoryTransactionType;
   quantityChange: number; // Positive for inflow/return/initial, negative for outflow/damage
   reason?: string;
   date: string; // ISO date string
   user: string; // User who performed the transaction or system
   notes?: string;
-  warehouseId?: string; // Optional: ID of the warehouse for this transaction
-  warehouseName?: string; // Optional: Name of the warehouse, denormalized for easier display
+  warehouseId?: string;
+  warehouseName?: string;
 }
 
 export interface NavItem {
@@ -72,4 +73,29 @@ export interface User {
   role: UserRole;
   avatarFallback: string;
   categoryAccess?: string; // For DepartmentEmployee: limits access to products of this category
+}
+
+// Material Request Types
+export type MaterialRequestStatus = 'Pending' | 'Approved' | 'Rejected' | 'Completed' | 'Cancelled';
+
+export interface RequestedItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+}
+
+export interface MaterialRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  departmentCategory: string; // e.g., Electronics, Raw Materials
+  items: RequestedItem[];
+  reasonForRequest: string; // Reason for needing the materials
+  requestedDate: string; // ISO date string for when materials are needed
+  status: MaterialRequestStatus;
+  submissionDate: string; // ISO date string when request was submitted
+  approverId?: string; // User ID of Admin/Manager who actioned
+  approverName?: string;
+  approverNotes?: string; // Notes from approver (e.g., reason for rejection)
+  actionDate?: string; // ISO date string of approval/rejection
 }
