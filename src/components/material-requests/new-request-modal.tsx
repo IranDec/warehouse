@@ -139,7 +139,7 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
         <div className="space-y-6 py-4 flex-grow overflow-y-auto pr-3">
           <div className="space-y-2">
             <Label className="text-base font-semibold">Requested Items</Label>
-            <div className="space-y-3 max-h-[calc(90vh-400px)] sm:max-h-[calc(90vh-350px)] overflow-y-auto pr-1 border rounded-md p-2 bg-muted/20"> 
+            <div className="space-y-3 max-h-[calc(90vh-400px)] sm:max-h-[calc(90vh-350px)] overflow-y-auto pr-1 border rounded-md p-3 bg-muted/20 shadow-inner"> 
               {items.map((item, index) => (
                 <div key={index} className="flex flex-col sm:flex-row items-start sm:items-end gap-2 p-3 border rounded-md bg-card shadow-sm">
                   <div className="flex-grow w-full space-y-1">
@@ -177,7 +177,7 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
                       className="h-9"
                     />
                   </div>
-                  {items.length > 0 && ( // Always show remove if at least one item, but logic in handleRemoveItem prevents removing the last one
+                  {items.length > 0 && ( 
                     <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="text-destructive hover:bg-destructive/10 h-9 w-9 shrink-0 mt-2 sm:mt-0 self-end sm:self-auto" title="Remove Item">
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -207,7 +207,7 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
               date={requestedDate}
               onDateChange={setRequestedDate}
               className="w-full"
-              disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() -1))} // Disable past dates
+              disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() -1))} 
             />
           </div>
         </div>

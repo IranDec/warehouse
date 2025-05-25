@@ -47,9 +47,9 @@ export default function MaterialRequestsPage() {
   const [editingRequest, setEditingRequest] = useState<MaterialRequest | null>(null);
   
   // Filter states
-  const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterRequester, setFilterRequester] = useState<string>('');
-  const [filterDepartment, setFilterDepartment] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
+  const [filterRequester, setFilterRequester] = useState<string>(ALL_FILTER_VALUE);
+  const [filterDepartment, setFilterDepartment] = useState<string>(ALL_FILTER_VALUE);
   const [filterSubmissionDate, setFilterSubmissionDate] = useState<DateRange | undefined>(undefined);
 
   const [showCancelConfirm, setShowCancelConfirm] = useState<MaterialRequest | null>(null);
@@ -59,7 +59,7 @@ export default function MaterialRequestsPage() {
 
   const pageDescription = useMemo(() => {
     if (canManageRequests) {
-      return "Review, approve, or reject material requests submitted by departments. You can also track the status of all requests.";
+      return "Review, approve, or reject material requests submitted by departments. You can also track the status of all requests using the filters below.";
     }
     if (canCreateRequests) {
       return "Submit new requests for materials for your department. You can view, edit (if pending), or cancel your submitted requests.";
@@ -70,12 +70,12 @@ export default function MaterialRequestsPage() {
   const uniqueRequesters = useMemo(() => {
     const requesters = new Set(MOCK_MATERIAL_REQUESTS.map(r => r.requesterName));
     return Array.from(requesters).sort();
-  }, []); // Based on all mock requests to have a consistent list
+  }, []); 
 
   const uniqueDepartments = useMemo(() => {
     const departments = new Set(MOCK_MATERIAL_REQUESTS.map(r => r.departmentCategory));
     return Array.from(departments).sort();
-  }, []); // Based on all mock requests for consistency
+  }, []); 
 
 
   const handleAddNewRequest = (newRequest: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
@@ -138,9 +138,9 @@ export default function MaterialRequestsPage() {
 
   const filteredRequests = useMemo(() => {
     return requests.filter(request => {
-      const statusMatch = filterStatus ? request.status === filterStatus : true;
-      const requesterMatch = filterRequester ? request.requesterName === filterRequester : true;
-      const departmentMatch = filterDepartment ? request.departmentCategory === filterDepartment : true;
+      const statusMatch = filterStatus === ALL_FILTER_VALUE ? true : request.status === filterStatus;
+      const requesterMatch = filterRequester === ALL_FILTER_VALUE ? true : request.requesterName === filterRequester;
+      const departmentMatch = filterDepartment === ALL_FILTER_VALUE ? true : request.departmentCategory === filterDepartment;
       
       let submissionDateMatch = true;
       if (filterSubmissionDate?.from && filterSubmissionDate?.to) {
@@ -152,7 +152,7 @@ export default function MaterialRequestsPage() {
           });
         } catch (e) {
           console.error("Error parsing submission date for filtering:", request.submissionDate, e);
-          submissionDateMatch = false; // Or true, depending on desired behavior for invalid dates
+          submissionDateMatch = false;
         }
       } else if (filterSubmissionDate?.from) {
          try {
@@ -175,9 +175,9 @@ export default function MaterialRequestsPage() {
   }, [requests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate]);
   
   const clearAllFilters = () => {
-    setFilterStatus('');
-    setFilterRequester('');
-    setFilterDepartment('');
+    setFilterStatus(ALL_FILTER_VALUE);
+    setFilterRequester(ALL_FILTER_VALUE);
+    setFilterDepartment(ALL_FILTER_VALUE);
     setFilterSubmissionDate(undefined);
   };
 
@@ -216,9 +216,6 @@ export default function MaterialRequestsPage() {
       cell: ({ row }) => {
         const status = row.original.status;
         let badgeClass = "";
-        // Using theme variables via CSS for better consistency is ideal,
-        // but for direct Tailwind, specific color shades are used here.
-        // Ensure these colors have good contrast in both light and dark themes.
         switch(status) {
             case "Pending": badgeClass = "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30"; break;
             case "Approved": badgeClass = "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/50 hover:bg-green-500/30"; break;
@@ -292,7 +289,6 @@ export default function MaterialRequestsPage() {
                   </DropdownMenuItem>
                  </>
               )}
-              {/* Logic to show "No actions available" if no specific actions are suitable */}
               { !(canManageRequests && request.status === 'Pending') && 
                 !(isRequester && request.status === 'Pending') &&
                 (
@@ -324,7 +320,7 @@ export default function MaterialRequestsPage() {
       <div className="space-y-4 pt-2">
          <div className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
             <DateRangePicker date={filterSubmissionDate} onDateChange={setFilterSubmissionDate} />
-            <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value === ALL_FILTER_VALUE ? "" : value)}>
+            <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value)}>
               <SelectTrigger className="w-full md:w-[180px] h-9">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
@@ -335,7 +331,7 @@ export default function MaterialRequestsPage() {
             </Select>
              <Select 
                 value={filterRequester} 
-                onValueChange={(value) => setFilterRequester(value === ALL_FILTER_VALUE ? "" : value)}
+                onValueChange={(value) => setFilterRequester(value)}
                 disabled={currentUser?.role === 'DepartmentEmployee'}
             >
               <SelectTrigger className="w-full md:w-[200px] h-9">
@@ -348,7 +344,7 @@ export default function MaterialRequestsPage() {
             </Select>
             <Select 
                 value={filterDepartment} 
-                onValueChange={(value) => setFilterDepartment(value === ALL_FILTER_VALUE ? "" : value)}
+                onValueChange={(value) => setFilterDepartment(value)}
                 disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess}
             >
               <SelectTrigger className="w-full md:w-[200px] h-9">
