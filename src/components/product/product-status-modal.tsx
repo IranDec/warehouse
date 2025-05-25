@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea'; // Using textarea for description
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Sparkles } from 'lucide-react';
 import type { Product, ProductStatus } from '@/lib/types';
 import { PRODUCT_STATUS_OPTIONS } from '@/lib/constants';
