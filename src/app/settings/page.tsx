@@ -35,12 +35,12 @@ interface UserRoleEditorProps {
   user: User;
   onRoleChange: (userId: string, newRole: UserRole) => void;
   currentUserRole: UserRole | undefined;
+  toast: ReturnType<typeof useToast>['toast']; // Pass toast function as a prop
 }
 
-function UserRoleEditor({ user, onRoleChange, currentUserRole }: UserRoleEditorProps) {
+function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRoleEditorProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { toast } = useToast();
 
   const handleSaveRole = () => {
     onRoleChange(user.id, selectedRole);
@@ -102,6 +102,7 @@ export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { currentUser, users: mockUsers, updateUserRole } = useAuth(); 
   const [mounted, setMounted] = useState(false);
+  const { toast } = useToast(); // Call useToast at the top level
 
   useEffect(() => {
     setMounted(true);
@@ -150,7 +151,7 @@ export default function SettingsPage() {
                 />
                 <Label htmlFor="dark-mode">Enable Dark Mode</Label>
               </div>
-              <Button onClick={() => useToast().toast({title: "Simulated Save", description: "General settings save action clicked."})}>Save Changes</Button>
+              <Button onClick={() => toast({title: "Simulated Save", description: "General settings save action clicked."})}>Save Changes</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -173,7 +174,7 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   {canManageUsers ? (
-                    <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} />
+                    <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toast={toast} />
                   ) : (
                     <span className="text-sm font-medium">{user.role}</span>
                   )}
@@ -203,7 +204,7 @@ export default function SettingsPage() {
                   <Image src="https://placehold.co/100x40.png?text=WooCommerce" alt="WooCommerce" width={100} height={40} data-ai-hint="logo brand" />
                   <Image src="https://placehold.co/100x40.png?text=Shopify" alt="Shopify" width={100} height={40} data-ai-hint="logo brand" />
                 </div>
-                <Button variant="outline" className="mt-4" onClick={() => useToast().toast({title: "Simulated Action", description: "Add Integration functionality."})}>Add CMS Integration</Button>
+                <Button variant="outline" className="mt-4" onClick={() => toast({title: "Simulated Action", description: "Add Integration functionality."})}>Add CMS Integration</Button>
               </div>
               <div className="border-t pt-6">
                 <h3 className="text-md font-semibold mb-2 flex items-center"><FileJson className="mr-2 h-5 w-5 text-primary"/> Bill of Materials (BOM) Management</h3>
@@ -229,7 +230,7 @@ export default function SettingsPage() {
                 ) : (
                   <p className="text-xs text-muted-foreground">No mock BOMs configured yet.</p>
                 )}
-                 <Button variant="outline" size="sm" className="mt-3" onClick={() => useToast().toast({title: "Simulated Action", description: "Manage BOMs functionality."})}>Manage BOMs</Button>
+                 <Button variant="outline" size="sm" className="mt-3" onClick={() => toast({title: "Simulated Action", description: "Manage BOMs functionality."})}>Manage BOMs</Button>
               </div>
             </CardContent>
           </Card>
@@ -264,7 +265,7 @@ export default function SettingsPage() {
                 ) : (
                   <p className="text-xs text-muted-foreground">No mock Email/SMS notification settings configured yet.</p>
                 )}
-                <Button variant="outline" className="mt-4" onClick={() => useToast().toast({title: "Simulated Action", description: "Configure Alerts functionality."})}>Configure Alerts</Button>
+                <Button variant="outline" className="mt-4" onClick={() => toast({title: "Simulated Action", description: "Configure Alerts functionality."})}>Configure Alerts</Button>
               </div>
             </CardContent>
           </Card>
@@ -290,7 +291,7 @@ export default function SettingsPage() {
                 </Select>
               </div>
                <p className="text-sm text-muted-foreground">Multi-language support (English & Persian) is planned.</p>
-              <Button onClick={() => useToast().toast({title: "Simulated Save", description: "Language settings save action clicked."})}>Save Language</Button>
+              <Button onClick={() => toast({title: "Simulated Save", description: "Language settings save action clicked."})}>Save Language</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -298,3 +299,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+
