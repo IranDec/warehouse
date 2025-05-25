@@ -117,3 +117,11 @@ export interface NotificationSetting {
   isEnabled: boolean;
 }
 
+export interface UserActivityLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  timestamp: string; // ISO date string
+  details?: string; // e.g., Product ID, Request ID
+}

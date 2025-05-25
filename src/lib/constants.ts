@@ -1,5 +1,5 @@
 
-import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole, MaterialRequest, MaterialRequestStatus, BillOfMaterial, NotificationSetting } from './types';
+import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole, MaterialRequest, MaterialRequestStatus, BillOfMaterial, NotificationSetting, UserActivityLog } from './types';
 import { Home, Package, ListOrdered, Settings, Boxes, BarChart3, FileText, UploadCloud, Users, ClipboardList } from 'lucide-react';
 
 export const APP_NAME = 'Warehouse Edge';
@@ -378,3 +378,69 @@ export const MOCK_NOTIFICATION_SETTINGS: NotificationSetting[] = [
     { id: 'notif6', productId: 'prod4', productName: 'Delta-Grade Steel Plate', threshold: 5, recipient: 'metal_works_foreman@example.com', channel: 'email', isEnabled: true},
 ];
 
+export const MOCK_USER_ACTIVITIES: UserActivityLog[] = [
+  {
+    id: 'ualog1',
+    userId: 'user2', // Bob Manager
+    userName: 'Bob Manager',
+    action: 'Approved material request MR002',
+    timestamp: new Date(Date.now() - 1 * 20 * 60 * 60 * 1000).toISOString(), // 20 hours ago
+    details: 'MR002',
+  },
+  {
+    id: 'ualog2',
+    userId: 'user1', // Alice Admin
+    userName: 'Alice Admin',
+    action: 'Updated product status for Alpha-Core Processor (prod1) to Low Stock',
+    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    details: 'prod1',
+  },
+  {
+    id: 'ualog3',
+    userId: 'user3', // Charlie Tech
+    userName: 'Charlie Tech',
+    action: 'Submitted material request MR001',
+    timestamp: new Date(Date.now() - 1 * 10 * 60 * 60 * 1000).toISOString(), // 10 hours ago
+    details: 'MR001',
+  },
+  {
+    id: 'ualog4',
+    userId: 'user1', // Alice Admin
+    userName: 'Alice Admin',
+    action: 'Added new product: Epsilon Power Supply',
+    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+    details: 'prod_new_eps', // Example of a detail not matching an existing product ID for variety
+  },
+  {
+    id: 'ualog5',
+    userId: 'user2', // Bob Manager
+    userName: 'Bob Manager',
+    action: 'Rejected material request MR003',
+    timestamp: new Date(Date.now() - 1 * 23 * 60 * 60 * 1000).toISOString(), // 23 hours ago
+    details: 'MR003',
+  },
+  {
+    id: 'ualog6',
+    userId: 'user4', // Diana Fabric
+    userName: 'Diana Fabric',
+    action: 'Viewed product: Gamma Fabric Roll (Blue)',
+    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
+    details: 'prod3',
+  },
+   {
+    id: 'ualog7',
+    userId: 'user3', // Charlie Tech
+    userName: 'Charlie Tech',
+    action: 'Updated quantity for M3 Screw Pack in MR004',
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+    details: 'MR004',
+  },
+  {
+    id: 'ualog8',
+    userId: 'user1', // Alice Admin
+    userName: 'Alice Admin',
+    action: 'Changed role for Diana Fabric to WarehouseManager',
+    timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days ago
+    details: 'user4',
+  },
+];

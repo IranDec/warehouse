@@ -6,9 +6,9 @@ import React, { useState, useMemo } from 'react';
 import { PageHeader } from "@/components/common/page-header";
 import { DateRangePicker } from "@/components/common/date-range-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE } from '@/lib/constants';
-import type { InventoryTransaction, Product, Category, InventoryTransactionType } from '@/lib/types';
-import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon, AlertTriangle } from "lucide-react";
+import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE, MOCK_USER_ACTIVITIES, MOCK_USERS } from '@/lib/constants';
+import type { InventoryTransaction, Product, Category, InventoryTransactionType, UserActivityLog } from '@/lib/types';
+import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon, AlertTriangle, Users as UsersIcon } from "lucide-react";
 import type { DateRange } from 'react-day-picker';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { DataTable } from "@/components/common/data-table";
@@ -85,6 +85,8 @@ export default function ReportsPage() {
   const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
   const [filterProduct, setFilterProduct] = useState<string>(ALL_FILTER_VALUE);
   const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE);
+  const [filterUserActivity, setFilterUserActivity] = useState<string>(ALL_FILTER_VALUE);
+
 
   const availableProductsForFilter = useMemo(() => {
     if (filterCategory === ALL_FILTER_VALUE) {
@@ -309,6 +311,41 @@ export default function ReportsPage() {
     },
   ];
 
+  const filteredUserActivities = useMemo((): UserActivityLog[] => {
+    if (!dateRange?.from || !dateRange?.to) {
+      return [];
+    }
+    return MOCK_USER_ACTIVITIES.filter(activity => {
+      const activityDate = new Date(activity.timestamp);
+      const dateMatch = isWithinInterval(activityDate, { start: dateRange.from as Date, end: dateRange.to as Date });
+      const userMatch = filterUserActivity === ALL_FILTER_VALUE || activity.userId === filterUserActivity;
+      return dateMatch && userMatch;
+    });
+  }, [dateRange, filterUserActivity]);
+
+  const userActivityColumns: ColumnDef<UserActivityLog>[] = [
+    {
+      accessorKey: "userName",
+      header: "User",
+      cell: ({ row }) => <div className="font-medium">{row.original.userName}</div>
+    },
+    {
+      accessorKey: "action",
+      header: "Action",
+      cell: ({ row }) => <div className="truncate max-w-xs" title={row.original.action}>{row.original.action}</div>
+    },
+    {
+      accessorKey: "timestamp",
+      header: "Timestamp",
+      cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.timestamp} formatString="PPp" />
+    },
+    {
+      accessorKey: "details",
+      header: "Details/Reference",
+      cell: ({ row }) => row.original.details || 'N/A'
+    },
+  ];
+
   const handleExportProductMovement = () => {
     if (productBreakdown.length === 0) {
       toast({ title: "No data to export", description: "Please refine your filters or select a date range with data." });
@@ -341,6 +378,7 @@ export default function ReportsPage() {
     setFilterCategory(ALL_FILTER_VALUE);
     setFilterProduct(ALL_FILTER_VALUE);
     setFilterWarehouse(ALL_FILTER_VALUE);
+    setFilterUserActivity(ALL_FILTER_VALUE);
   };
 
 
@@ -384,6 +422,15 @@ export default function ReportsPage() {
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>All Products</SelectItem>
                 {availableProductsForFilter.map(prod => <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterUserActivity} onValueChange={setFilterUserActivity}>
+              <SelectTrigger className="w-full md:w-[200px] h-9">
+                <SelectValue placeholder="All Users (Activity)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>All Users (Activity)</SelectItem>
+                {MOCK_USERS.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button variant="ghost" onClick={handleClearFilters} className="h-9">
@@ -535,7 +582,20 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
+      <Card className="mt-6 shadow-md">
+        <CardHeader>
+          <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-purple-500" /> User Activity Log</CardTitle>
+          <CardDescription>Tracks key actions performed by users within the selected date range and user filter.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {dateRange?.from && dateRange?.to ? (
+            <DataTable columns={userActivityColumns} data={filteredUserActivities} filterColumn="userName" filterInputPlaceholder="Filter by user name in log..." />
+          ) : (
+             <p className="text-center text-muted-foreground py-8">Please select a date range to see user activity.</p>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
-
