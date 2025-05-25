@@ -5,9 +5,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppShell } from '@/components/layout/app-shell';
 import { SidebarProvider } from '@/components/ui/sidebar';
-
-// The GeistSans and GeistMono imports are objects, not functions to be called.
-// Their .variable property provides the class name to set the CSS variables.
+import { ThemeProvider } from "next-themes";
 
 export const metadata: Metadata = {
   title: 'Warehouse Edge',
@@ -22,10 +20,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${GeistSans.variable} ${GeistMono.variable} antialiased`} suppressHydrationWarning={true}>
-        <SidebarProvider defaultOpen>
-          <AppShell>{children}</AppShell>
-        </SidebarProvider>
-        <Toaster />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SidebarProvider defaultOpen>
+            <AppShell>{children}</AppShell>
+          </SidebarProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

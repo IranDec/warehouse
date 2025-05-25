@@ -10,8 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import Image from "next/image";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 export default function SettingsPage() {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    // Avoid rendering UI that depends on theme until client is mounted
+    // This helps prevent hydration mismatches
+    return null; 
+  }
+
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
       <PageHeader
@@ -41,8 +58,12 @@ export default function SettingsPage() {
                 <Input id="appName" defaultValue="Warehouse Edge" />
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="dark-mode" />
-                <Label htmlFor="dark-mode">Enable Dark Mode (Coming Soon)</Label>
+                <Switch 
+                  id="dark-mode" 
+                  checked={resolvedTheme === 'dark'}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                />
+                <Label htmlFor="dark-mode">Enable Dark Mode</Label>
               </div>
               <Button>Save Changes</Button>
             </CardContent>
