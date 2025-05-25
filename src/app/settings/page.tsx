@@ -2,7 +2,7 @@
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus, Tag } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,10 @@ import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import type { User, UserRole, Warehouse, Category } from "@/lib/types";
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS, MOCK_WAREHOUSES, MOCK_CATEGORIES } from "@/lib/constants";
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS, MOCK_WAREHOUSES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
-import { NewUserModal } from "@/components/settings/new-user-modal"; // Import the new modal
+import { NewUserModal } from "@/components/settings/new-user-modal";
+import { NewCategoryModal } from "@/components/settings/new-category-modal"; // Import NewCategoryModal
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,9 +38,10 @@ interface UserRoleEditorProps {
   onRoleChange: (userId: string, newRole: UserRole, newCategoryAccess?: string) => void;
   currentUserRole: UserRole | undefined;
   toast: ReturnType<typeof useToast>['toast'];
+  categories: Category[]; // Add categories prop
 }
 
-function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRoleEditorProps) {
+function UserRoleEditor({ user, onRoleChange, currentUserRole, toast, categories }: UserRoleEditorProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(user.categoryAccess);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -69,10 +71,9 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRole
     (currentUserRole === 'WarehouseManager' && user.role !== 'Admin' && user.role !== 'WarehouseManager');
 
 
-  if (!canEditThisUserRole && user.id !== (useAuth().currentUser?.id)) { // Users can't edit others if no general permission
+  if (!canEditThisUserRole && user.id !== (useAuth().currentUser?.id)) { 
      return <span className="text-sm text-muted-foreground">{user.role}</span>;
   }
-  // Non-admins cannot edit admin roles
    if (user.role === 'Admin' && currentUserRole !== 'Admin') {
     return <span className="text-sm text-muted-foreground">{user.role} (Cannot change Admin)</span>;
   }
@@ -113,7 +114,7 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRole
                         <SelectValue placeholder="Select category access" />
                     </SelectTrigger>
                     <SelectContent>
-                        {MOCK_CATEGORIES.map(cat => (
+                        {categories.map(cat => (
                             <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                         ))}
                     </SelectContent>
@@ -133,10 +134,11 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRole
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { currentUser, users: mockUsers, updateUserRole } = useAuth();
+  const { currentUser, users: mockUsers, updateUserRole, categories, addCategory } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
-  const { toast } = useToast(); // Moved toast here
+  const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false); // State for category modal
+  const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
@@ -148,6 +150,7 @@ export default function SettingsPage() {
 
   const canManageUsers = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageWarehouses = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
+  const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
 
 
   return (
@@ -159,9 +162,10 @@ export default function SettingsPage() {
       />
 
       <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 h-auto p-1">
           <TabsTrigger value="general" className="text-xs sm:text-sm"><Palette className="mr-1 h-4 w-4 hidden sm:inline-flex" /> General</TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> User Management</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Users</TabsTrigger>
+          <TabsTrigger value="categories" className="text-xs sm:text-sm"><Tag className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Categories</TabsTrigger>
           <TabsTrigger value="warehouses" className="text-xs sm:text-sm"><WarehouseIcon className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Warehouses</TabsTrigger>
           <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations & BOM</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm"><Bell className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Notifications</TabsTrigger>
@@ -220,7 +224,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                   {canManageUsers ? (
-                    <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toast={toast} />
+                    <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toast={toast} categories={categories} />
                   ) : (
                     <span className="text-sm font-medium">{user.role}</span>
                   )}
@@ -230,6 +234,56 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground text-center pt-4">
                   Contact an Administrator to manage user roles.
                 </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="categories">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Category Management</CardTitle>
+                <CardDescription>
+                  {canManageCategories
+                    ? "Manage product categories. (Simulated: Changes are not persistent)."
+                    : "View product categories. You do not have permission to manage them."}
+                </CardDescription>
+              </div>
+              {canManageCategories && (
+                <Button onClick={() => setIsNewCategoryModalOpen(true)}>
+                  <Tag className="mr-2 h-4 w-4" /> Add New Category
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Description</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-mono text-xs">{category.id}</TableCell>
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell>{category.description || 'N/A'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+               {!canManageCategories && categories.length > 0 && (
+                <p className="text-sm text-muted-foreground text-center pt-4">
+                  Contact an Administrator to manage categories.
+                </p>
+              )}
+              {categories.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No categories defined yet.</p>
               )}
             </CardContent>
           </Card>
@@ -390,6 +444,7 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
       <NewUserModal isOpen={isNewUserModalOpen} onClose={() => setIsNewUserModalOpen(false)} />
+      <NewCategoryModal isOpen={isNewCategoryModalOpen} onClose={() => setIsNewCategoryModalOpen(false)} />
     </div>
   );
 }

@@ -7,15 +7,15 @@ import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { FileUploadCard } from "@/components/common/file-upload-card";
 import { ProductStatusModal } from "@/components/product/product-status-modal";
-import { AddEditProductModal } from "@/components/product/add-edit-product-modal"; // Import new modal
+import { AddEditProductModal } from "@/components/product/add-edit-product-modal"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { MOCK_PRODUCTS, MOCK_CATEGORIES, PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
-import type { Product, ProductStatus, Category, Warehouse } from '@/lib/types';
-import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Home, Edit, PlusCircle } from 'lucide-react'; // Added PlusCircle
+import { MOCK_PRODUCTS, PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
+import type { Product, ProductStatus, Warehouse } from '@/lib/types';
+import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Home, Edit, PlusCircle } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +23,7 @@ import Papa from 'papaparse';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function ProductsPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, categories } = useAuth(); // Use categories from AuthContext
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
@@ -38,7 +38,6 @@ export default function ProductsPage() {
 
   const { toast } = useToast();
 
-  // Permissions
   const canAddProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canEditProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canDeleteProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
@@ -156,10 +155,10 @@ export default function ProductsPage() {
   };
 
   const handleSaveProduct = (productData: Product) => {
-    if (editingProduct) { // Editing existing product
+    if (editingProduct) { 
       setProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
       toast({ title: "Product Updated", description: `${productData.name} has been updated.`});
-    } else { // Adding new product
+    } else { 
       setProducts(prev => [productData, ...prev]);
       toast({ title: "Product Added", description: `${productData.name} has been added.`});
     }
@@ -348,7 +347,7 @@ export default function ProductsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_FILTER_VALUE}>All Categories</SelectItem>
-              {MOCK_CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}
+              {categories.map(cat => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select
@@ -397,5 +396,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-
-    

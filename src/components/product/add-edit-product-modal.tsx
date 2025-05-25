@@ -20,9 +20,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Product, ProductStatus, Category, Warehouse } from '@/lib/types';
-import { PRODUCT_STATUS_OPTIONS, MOCK_CATEGORIES, MOCK_WAREHOUSES } from '@/lib/constants';
+import type { Product, ProductStatus, Warehouse } from '@/lib/types'; // Removed Category import
+import { PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES } from '@/lib/constants'; // Removed MOCK_CATEGORIES
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 const productFormSchema = z.object({
   id: z.string().optional(),
@@ -50,6 +51,8 @@ interface AddEditProductModalProps {
 
 export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct }: AddEditProductModalProps) {
   const { toast } = useToast();
+  const { categories } = useAuth(); // Get categories from AuthContext
+
   const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
@@ -81,10 +84,10 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
           description: existingProduct.description || '',
         });
       } else {
-        reset({ // Default values for new product
+        reset({ 
           name: '',
           sku: '',
-          category: MOCK_CATEGORIES[0]?.name || '',
+          category: categories[0]?.name || '', // Use categories from context
           warehouseId: MOCK_WAREHOUSES[0]?.id || '',
           quantity: 0,
           reorderLevel: 10,
@@ -94,14 +97,14 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
         });
       }
     }
-  }, [isOpen, existingProduct, reset]);
+  }, [isOpen, existingProduct, reset, categories]);
 
   const handleFormSubmit = (data: ProductFormData) => {
     const productToSubmit: Product = {
-      id: existingProduct?.id || `prod${Date.now()}`, // Generate new ID if not editing
+      id: existingProduct?.id || `prod${Date.now()}`, 
       lastUpdated: new Date().toISOString(),
       ...data,
-      imageUrl: data.imageUrl || 'https://placehold.co/100x100.png', // Ensure placeholder if empty
+      imageUrl: data.imageUrl || 'https://placehold.co/100x100.png', 
     };
     onSubmit(productToSubmit);
     onClose();
@@ -149,7 +152,7 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MOCK_CATEGORIES.map(cat => (
+                      {categories.map(cat => ( // Use categories from context
                         <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -257,5 +260,3 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
     </Dialog>
   );
 }
-
-    

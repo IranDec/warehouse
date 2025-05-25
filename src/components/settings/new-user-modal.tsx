@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from '@/contexts/auth-context';
 import type { User, UserRole } from '@/lib/types';
-import { USER_ROLES, MOCK_CATEGORIES } from '@/lib/constants';
+import { USER_ROLES } from '@/lib/constants'; // MOCK_CATEGORIES removed
 import { useToast } from '@/hooks/use-toast';
 
 const newUserSchema = z.object({
@@ -46,7 +46,7 @@ interface NewUserModalProps {
 }
 
 export function NewUserModal({ isOpen, onClose }: NewUserModalProps) {
-  const { addNewUser, currentUser } = useAuth();
+  const { addNewUser, currentUser, categories } = useAuth(); // Get categories from AuthContext
   const { toast } = useToast();
 
   const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<NewUserFormData>({
@@ -145,7 +145,7 @@ export function NewUserModal({ isOpen, onClose }: NewUserModalProps) {
                       <SelectValue placeholder="Select category access" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MOCK_CATEGORIES.map(cat => (
+                      {categories.map(cat => ( // Use categories from context
                         <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                       ))}
                     </SelectContent>
