@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { FileUploadCard } from "@/components/common/file-upload-card";
 import { ProductStatusModal } from "@/components/product/product-status-modal";
+import { AddEditProductModal } from "@/components/product/add-edit-product-modal"; // Import new modal
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { MOCK_PRODUCTS, MOCK_CATEGORIES, PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
 import type { Product, ProductStatus, Category, Warehouse } from '@/lib/types';
-import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Home } from 'lucide-react';
+import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Home, Edit, PlusCircle } from 'lucide-react'; // Added PlusCircle
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
@@ -25,19 +26,22 @@ export default function ProductsPage() {
   const { currentUser } = useAuth();
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [filterName, setFilterName] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE); // Default to ALL
+  const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
+  const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
+  const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE); 
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedProductForStatus, setSelectedProductForStatus] = useState<Product | null>(null);
+  
+  const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
   const { toast } = useToast();
 
   // Permissions
   const canAddProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canEditProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canDeleteProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
-  // Department employees can only update status and view, not full edit or delete.
 
   const handleProductImport = async (file: File) => {
     if (!canAddProducts && !canEditProducts) {
@@ -138,7 +142,6 @@ export default function ProductsPage() {
   };
 
   const handleSaveStatus = (productId: string, newStatus: ProductStatus, newDescription?: string) => {
-    // All roles can update status through this modal as per current design
     setProducts(prevProducts =>
       prevProducts.map(p =>
         p.id === productId ? { ...p, status: newStatus, description: newDescription || p.description, lastUpdated: new Date().toISOString() } : p
@@ -146,6 +149,23 @@ export default function ProductsPage() {
     );
     toast({ title: "Status Updated", description: `Status for product ${productId} changed to ${newStatus}.` });
   };
+  
+  const handleOpenAddEditModal = (product?: Product) => {
+    setEditingProduct(product || null);
+    setIsAddEditModalOpen(true);
+  };
+
+  const handleSaveProduct = (productData: Product) => {
+    if (editingProduct) { // Editing existing product
+      setProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
+      toast({ title: "Product Updated", description: `${productData.name} has been updated.`});
+    } else { // Adding new product
+      setProducts(prev => [productData, ...prev]);
+      toast({ title: "Product Added", description: `${productData.name} has been added.`});
+    }
+    setEditingProduct(null);
+  };
+
 
   const getWarehouseName = (warehouseId: string) => {
     return MOCK_WAREHOUSES.find(wh => wh.id === warehouseId)?.name || 'N/A';
@@ -228,18 +248,27 @@ export default function ProductsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleOpenStatusModal(row.original)}>
-              <Edit3 className="mr-2 h-4 w-4" /> Update Status
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => toast({title: "View Details (Simulated)", description: `Viewing details for ${row.original.name}.`})}>
               <Eye className="mr-2 h-4 w-4" /> View Details
             </DropdownMenuItem>
+            {canEditProducts && (
+              <DropdownMenuItem onClick={() => handleOpenAddEditModal(row.original)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit Product
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => handleOpenStatusModal(row.original)}>
+              <Edit3 className="mr-2 h-4 w-4" /> Update Status
+            </DropdownMenuItem>
+            
             {canDeleteProducts && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                  onClick={() => { /* Implement delete logic */ toast({title: "Delete (Simulated)", description: `Product ${row.original.name} delete action clicked.`, variant: "destructive"})}}
+                  onClick={() => { 
+                    setProducts(prev => prev.filter(p => p.id !== row.original.id));
+                    toast({title: "Product Deleted", description: `Product ${row.original.name} has been deleted (simulated).`, variant: "destructive"})
+                  }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" /> Delete Product
                 </DropdownMenuItem>
@@ -257,7 +286,7 @@ export default function ProductsPage() {
         title="Product Management"
         icon={Package}
         description="Oversee your product catalog, update stock levels, and manage statuses."
-        actions={canAddProducts ? <Button onClick={() => toast({title: "Add Product (Simulated)", description: "This would open a form to add a new product, including warehouse selection."})}>Add New Product</Button> : null}
+        actions={canAddProducts ? <Button onClick={() => handleOpenAddEditModal()}><PlusCircle className="mr-2 h-4 w-4" />Add New Product</Button> : null}
       />
 
       {(canAddProducts || canEditProducts) && (
@@ -311,7 +340,7 @@ export default function ProductsPage() {
           />
           <Select
             value={filterCategory}
-            onValueChange={(value) => setFilterCategory(value)}
+            onValueChange={(value) => setFilterCategory(value === ALL_FILTER_VALUE ? ALL_FILTER_VALUE : value)}
             disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
@@ -324,7 +353,7 @@ export default function ProductsPage() {
           </Select>
           <Select
             value={filterStatus}
-            onValueChange={(value) => setFilterStatus(value)}
+            onValueChange={(value) => setFilterStatus(value === ALL_FILTER_VALUE ? ALL_FILTER_VALUE : value)}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
               <SelectValue placeholder="All Statuses" />
@@ -336,7 +365,7 @@ export default function ProductsPage() {
           </Select>
           <Select
             value={filterWarehouse}
-            onValueChange={(value) => setFilterWarehouse(value)}
+            onValueChange={(value) => setFilterWarehouse(value === ALL_FILTER_VALUE ? ALL_FILTER_VALUE : value)}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
               <SelectValue placeholder="All Warehouses" />
@@ -359,7 +388,14 @@ export default function ProductsPage() {
         onClose={() => setIsStatusModalOpen(false)}
         onSave={handleSaveStatus}
       />
+      <AddEditProductModal
+        isOpen={isAddEditModalOpen}
+        onClose={() => {setIsAddEditModalOpen(false); setEditingProduct(null);}}
+        onSubmit={handleSaveProduct}
+        existingProduct={editingProduct}
+      />
     </div>
   );
 }
 
+    
