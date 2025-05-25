@@ -203,7 +203,7 @@ Warehouse Edge aims to simplify and automate warehouse operations for manufactur
 This Warehouse Management System concept was prepared by **Mohammad Babaei**.
 
 For inquiries regarding the development of a production-ready version or custom features, please contact:
-**AdsChi.com** ([https://adschicrm.com/](https://adschicrm.com/))
+**AdsChi.com** ([https://adschi.com/](https://adschi.com/))
 
 ---
 
