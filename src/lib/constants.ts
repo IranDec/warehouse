@@ -1,6 +1,6 @@
 
 import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole, MaterialRequest, MaterialRequestStatus, BillOfMaterial, NotificationSetting, UserActivityLog } from './types';
-import { Home, Package, ListOrdered, Settings, Boxes, BarChart3, FileText, UploadCloud, Users, ClipboardList } from 'lucide-react';
+import { Home, Package, ListOrdered, Settings, BarChart3, ClipboardList, Users as UsersIcon, AlertTriangle as AlertTriangleIcon } from 'lucide-react'; // Renamed AlertTriangle to avoid conflict
 
 export const APP_NAME = 'Warehouse Edge';
 export const ALL_FILTER_VALUE = "__ALL__";
@@ -14,22 +14,26 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-export const MOCK_WAREHOUSES: Warehouse[] = [
-  { id: 'wh1', name: 'Main Warehouse', location: 'Building A' },
-  { id: 'wh2', name: 'Textile Storage', location: 'Building B, Section 2' },
-  { id: 'wh3', name: 'Metalworks Bay', location: 'Building C' },
-  { id: 'wh4', name: 'Shipping Hub', location: 'Building A, Dock 5' },
-  { id: 'wh5', name: 'Cold Storage', location: 'Building D' },
-];
-
 export const MOCK_CATEGORIES: Category[] = [
   { id: 'cat1', name: 'Electronics', description: 'Electronic components and devices.' },
-  { id: 'cat2', name: 'Raw Materials', description: 'Materials used in production.' },
+  { id: 'cat2', name: 'Raw Materials - General', description: 'General materials used in production.' },
   { id: 'cat3', name: 'Finished Goods', description: 'Products ready for sale.' },
   { id: 'cat4', name: 'Office Supplies', description: 'Items for office use.' },
   { id: 'cat5', name: 'Perishables', description: 'Goods with limited shelf life.' },
   { id: 'cat6', name: 'Hardware Components', description: 'Small hardware parts like screws, bolts.' },
   { id: 'cat7', name: 'Plastic Components', description: 'Molded plastic parts.'},
+  { id: 'cat_textile_raw', name: 'Raw Materials - Textiles', description: 'Fabrics, threads, etc.'},
+  { id: 'cat_metal_raw', name: 'Raw Materials - Metals', description: 'Metal sheets, bars, etc.'},
+];
+
+
+export const MOCK_WAREHOUSES: Warehouse[] = [
+  { id: 'wh1', name: 'Main Warehouse', location: 'Building A', managedCategoryIds: ['cat1', 'cat6', 'cat7', 'cat3'] }, // Electronics, Hardware, Plastics, Finished Goods
+  { id: 'wh2', name: 'Textile Storage', location: 'Building B, Section 2', managedCategoryIds: ['cat_textile_raw'] },
+  { id: 'wh3', name: 'Metalworks Bay', location: 'Building C', managedCategoryIds: ['cat_metal_raw', 'cat6'] }, // Metal Raw Materials, Hardware
+  { id: 'wh4', name: 'Shipping Hub', location: 'Building A, Dock 5', managedCategoryIds: ['cat3', 'cat4'] }, // Finished Goods, Office Supplies
+  { id: 'wh5', name: 'Cold Storage', location: 'Building D', managedCategoryIds: ['cat5'] }, // Perishables
+  { id: 'wh_general_raw', name: 'General Raw Materials', location: 'Building E', managedCategoryIds: ['cat2'] },
 ];
 
 export const MOCK_PRODUCTS: Product[] = [
@@ -37,7 +41,7 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod1',
     name: 'Alpha-Core Processor',
     sku: 'AC-P-001',
-    category: 'Electronics', // Can also be a Raw Material for other Finished Goods
+    category: 'Electronics',
     quantity: 150,
     reorderLevel: 50,
     warehouseId: 'wh1',
@@ -50,7 +54,7 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod2',
     name: 'Beta-Series RAM Module (16GB)',
     sku: 'BS-RM-016',
-    category: 'Electronics', // Can also be a Raw Material
+    category: 'Electronics',
     quantity: 35,
     reorderLevel: 25,
     warehouseId: 'wh1',
@@ -63,7 +67,7 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod3',
     name: 'Gamma Fabric Roll (Blue)',
     sku: 'GF-R-BLU',
-    category: 'Raw Materials',
+    category: 'Raw Materials - Textiles',
     quantity: 0,
     reorderLevel: 100,
     warehouseId: 'wh2',
@@ -76,7 +80,7 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod4',
     name: 'Delta-Grade Steel Plate',
     sku: 'DG-SP-005',
-    category: 'Raw Materials',
+    category: 'Raw Materials - Metals',
     quantity: 5,
     reorderLevel: 10,
     warehouseId: 'wh3',
@@ -115,10 +119,10 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod7',
     name: 'M3 Screw Pack (100 units)',
     sku: 'HW-SCR-M3-100',
-    category: 'Hardware Components', // Raw Material for BOM
+    category: 'Hardware Components',
     quantity: 1000,
     reorderLevel: 200,
-    warehouseId: 'wh3',
+    warehouseId: 'wh1', // Main warehouse can stock hardware
     status: 'Available',
     lastUpdated: new Date().toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -128,10 +132,10 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod8',
     name: 'Standard Plastic Casing',
     sku: 'PL-CAS-STD-01',
-    category: 'Plastic Components', // Raw Material for BOM
+    category: 'Plastic Components',
     quantity: 300,
     reorderLevel: 50,
-    warehouseId: 'wh1',
+    warehouseId: 'wh1', // Main warehouse can stock plastic components
     status: 'Available',
     lastUpdated: new Date().toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -144,7 +148,7 @@ export const MOCK_PRODUCTS: Product[] = [
     category: 'Finished Goods',
     quantity: 75,
     reorderLevel: 20,
-    warehouseId: 'wh4',
+    warehouseId: 'wh1', // Main warehouse can also stock Finished Goods
     status: 'Available',
     lastUpdated: new Date().toISOString(),
     imageUrl: 'https://placehold.co/100x100.png',
@@ -194,7 +198,7 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
     productId: 'prod3',
     productName: 'Gamma Fabric Roll (Blue)',
     type: 'Damage',
-    quantityChange: -5, // Negative for damage
+    quantityChange: -5,
     date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
     user: 'Warehouse Inspection',
     reason: 'Water damage',
@@ -254,7 +258,7 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
     productId: 'prod1',
     productName: 'Alpha-Core Processor',
     type: 'Return',
-    quantityChange: 2, // Positive for return
+    quantityChange: 2,
     date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     user: 'Customer RMA #007',
     reason: 'Incorrect item shipped',
@@ -266,7 +270,7 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
     productId: 'prod4',
     productName: 'Delta-Grade Steel Plate',
     type: 'Damage',
-    quantityChange: -3, // Negative for damage
+    quantityChange: -3,
     date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     user: 'Warehouse Inspection',
     reason: 'Forklift accident',
@@ -288,9 +292,11 @@ export const MOCK_USERS: User[] = [
   { id: 'user1', name: 'Alice Admin', email: 'admin@example.com', role: 'Admin', avatarFallback: 'AA' },
   { id: 'user2', name: 'Bob Manager', email: 'manager@example.com', role: 'WarehouseManager', avatarFallback: 'BM' },
   { id: 'user3', name: 'Charlie Tech', email: 'charlie@example.com', role: 'DepartmentEmployee', categoryAccess: 'Electronics', avatarFallback: 'CT' },
-  { id: 'user4', name: 'Diana Fabric', email: 'diana@example.com', role: 'DepartmentEmployee', categoryAccess: 'Raw Materials', avatarFallback: 'DF' },
+  { id: 'user4', name: 'Diana Fabric', email: 'diana@example.com', role: 'DepartmentEmployee', categoryAccess: 'Raw Materials - Textiles', avatarFallback: 'DF' },
   { id: 'user5', name: 'Edward Goods', email: 'edward@example.com', role: 'DepartmentEmployee', categoryAccess: 'Finished Goods', avatarFallback: 'EG' },
   { id: 'user6', name: 'Fiona Food', email: 'fiona@example.com', role: 'DepartmentEmployee', categoryAccess: 'Perishables', avatarFallback: 'FF' },
+  { id: 'user7', name: 'Gary General', email: 'gary@example.com', role: 'DepartmentEmployee', categoryAccess: 'Raw Materials - General', avatarFallback: 'GG' },
+
 ];
 
 export const DEFAULT_CURRENT_USER_ID = MOCK_USERS.find(u => u.role === 'Admin')?.id || MOCK_USERS[0]?.id || 'user1';
@@ -319,7 +325,7 @@ export const MOCK_MATERIAL_REQUESTS: MaterialRequest[] = [
     id: 'mr002',
     requesterId: 'user4', // Diana Fabric
     requesterName: 'Diana Fabric',
-    departmentCategory: 'Raw Materials',
+    departmentCategory: 'Raw Materials - Textiles',
     items: [{ productId: 'prod3', productName: 'Gamma Fabric Roll (Blue)', quantity: 5 }],
     reasonForRequest: 'New clothing line samples',
     requestedDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
@@ -349,16 +355,16 @@ export const MOCK_MATERIAL_REQUESTS: MaterialRequest[] = [
 
 export const MOCK_BOM_CONFIGURATIONS: BillOfMaterial[] = [
   {
-    productId: 'prod5', 
+    productId: 'prod5',
     productName: 'Standard Assembled Widget',
     items: [
-      { rawMaterialId: 'prod7', rawMaterialName: 'M3 Screw Pack (100 units)', quantityNeeded: 5 }, 
-      { rawMaterialId: 'prod8', rawMaterialName: 'Standard Plastic Casing', quantityNeeded: 1 }, 
-      { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 1 } 
+      { rawMaterialId: 'prod7', rawMaterialName: 'M3 Screw Pack (100 units)', quantityNeeded: 5 },
+      { rawMaterialId: 'prod8', rawMaterialName: 'Standard Plastic Casing', quantityNeeded: 1 },
+      { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 1 }
     ]
   },
   {
-    productId: 'prod9', 
+    productId: 'prod9',
     productName: 'Advanced Gadget X',
     items: [
       { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 2 },

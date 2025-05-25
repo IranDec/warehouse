@@ -2,7 +2,7 @@
 // src/components/product/add-edit-product-modal.tsx
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,10 +20,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Product, ProductStatus } from '@/lib/types'; 
-import { PRODUCT_STATUS_OPTIONS } from '@/lib/constants'; 
+import type { Product, ProductStatus, Category, Warehouse } from '@/lib/types';
+import { PRODUCT_STATUS_OPTIONS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/auth-context'; 
+import { useAuth } from '@/contexts/auth-context';
 
 const productFormSchema = z.object({
   id: z.string().optional(),
@@ -51,9 +51,9 @@ interface AddEditProductModalProps {
 
 export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct }: AddEditProductModalProps) {
   const { toast } = useToast();
-  const { categories, warehouses } = useAuth(); 
+  const { categories, warehouses } = useAuth();
 
-  const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProductFormData>({
+  const { control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: '',
@@ -67,6 +67,19 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
       description: '',
     },
   });
+
+  const selectedWarehouseId = watch('warehouseId');
+
+  const availableCategoriesForSelectedWarehouse = useMemo(() => {
+    if (!selectedWarehouseId) {
+      return categories; // Show all categories if no warehouse is selected
+    }
+    const selectedWarehouse = warehouses.find(wh => wh.id === selectedWarehouseId);
+    if (selectedWarehouse && selectedWarehouse.managedCategoryIds && selectedWarehouse.managedCategoryIds.length > 0) {
+      return categories.filter(cat => selectedWarehouse.managedCategoryIds!.includes(cat.id));
+    }
+    return categories; // If warehouse has no specific managed categories, show all
+  }, [selectedWarehouseId, warehouses, categories]);
 
   useEffect(() => {
     if (isOpen) {
@@ -84,10 +97,10 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
           description: existingProduct.description || '',
         });
       } else {
-        reset({ 
+        reset({
           name: '',
           sku: '',
-          category: categories[0]?.name || '', 
+          category: '', // Initially no category selected
           warehouseId: warehouses[0]?.id || '',
           quantity: 0,
           reorderLevel: 10,
@@ -97,14 +110,42 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
         });
       }
     }
-  }, [isOpen, existingProduct, reset, categories, warehouses]);
+  }, [isOpen, existingProduct, reset, warehouses]);
+
+
+  useEffect(() => {
+    // When selectedWarehouseId changes, check if the current category is valid for the new warehouse
+    const currentCategoryValue = control._formValues.category;
+    if (selectedWarehouseId && currentCategoryValue) {
+      const selectedWarehouse = warehouses.find(wh => wh.id === selectedWarehouseId);
+      if (selectedWarehouse && selectedWarehouse.managedCategoryIds && selectedWarehouse.managedCategoryIds.length > 0) {
+        const categoryObject = categories.find(c => c.name === currentCategoryValue);
+        if (categoryObject && !selectedWarehouse.managedCategoryIds.includes(categoryObject.id)) {
+          setValue('category', ''); // Reset category if not valid for the new warehouse
+        }
+      }
+    }
+     // If warehouse selection is cleared, don't automatically clear category
+     // (user might want to select category first in some cases, though current flow encourages warehouse first)
+  }, [selectedWarehouseId, warehouses, categories, setValue, control._formValues.category]);
+
 
   const handleFormSubmit = (data: ProductFormData) => {
+    if (availableCategoriesForSelectedWarehouse.length > 0 && !data.category) {
+        toast({ title: "Category Required", description: "Please select a category for the chosen warehouse.", variant: "destructive" });
+        return;
+    }
+    if (availableCategoriesForSelectedWarehouse.length === 0 && selectedWarehouseId) {
+         toast({ title: "No Categories for Warehouse", description: "The selected warehouse has no categories assigned. Please assign categories to the warehouse in settings or select a different warehouse.", variant: "destructive", duration: 7000 });
+        return;
+    }
+
+
     const productToSubmit: Product = {
-      id: existingProduct?.id || `prod${Date.now()}`, 
+      id: existingProduct?.id || `prod${Date.now()}`,
       lastUpdated: new Date().toISOString(),
       ...data,
-      imageUrl: data.imageUrl || 'https://placehold.co/100x100.png', 
+      imageUrl: data.imageUrl || 'https://placehold.co/100x100.png',
     };
     onSubmit(productToSubmit);
     onClose();
@@ -144,34 +185,17 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
 
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="category">Category</Label>
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(cat => ( 
-                        <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.category && <p className="text-xs text-destructive pt-1">{errors.category.message}</p>}
-            </div>
-
-            <div>
+             <div>
               <Label htmlFor="warehouseId">Warehouse</Label>
               <Controller
                 name="warehouseId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={(value) => {
+                      field.onChange(value);
+                      // Consider resetting category when warehouse changes if the old category is not valid
+                      // This is partially handled by the useEffect above.
+                  }} value={field.value}>
                     <SelectTrigger id="warehouseId">
                       <SelectValue placeholder="Select warehouse" />
                     </SelectTrigger>
@@ -184,6 +208,30 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
                 )}
               />
               {errors.warehouseId && <p className="text-xs text-destructive pt-1">{errors.warehouseId.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="category">Category</Label>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedWarehouseId && availableCategoriesForSelectedWarehouse.length === categories.length /* only disable if not filtered yet and all categories shown*/}>
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder={!selectedWarehouseId ? "Select warehouse first" : "Select category"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCategoriesForSelectedWarehouse.length === 0 && selectedWarehouseId && (
+                        <SelectItem value="no-categories" disabled>No categories for this warehouse</SelectItem>
+                      )}
+                      {availableCategoriesForSelectedWarehouse.map(cat => (
+                        <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.category && <p className="text-xs text-destructive pt-1">{errors.category.message}</p>}
+               {!selectedWarehouseId && <p className="text-xs text-muted-foreground pt-1">Please select a warehouse to see available categories.</p>}
             </div>
           </div>
 
@@ -208,7 +256,7 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
               {errors.reorderLevel && <p className="text-xs text-destructive pt-1">{errors.reorderLevel.message}</p>}
             </div>
           </div>
-          
+
           <div>
             <Label htmlFor="status">Status</Label>
             <Controller

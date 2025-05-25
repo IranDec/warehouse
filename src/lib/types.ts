@@ -13,13 +13,14 @@ export interface Warehouse {
   id: string;
   name: string;
   location?: string;
+  managedCategoryIds?: string[]; // New field: IDs of categories managed by this warehouse
 }
 
 export interface Product {
   id: string;
   name: string;
   sku: string;
-  category: string; 
+  category: string;
   quantity: number;
   reorderLevel: number;
   warehouseId: string;
@@ -113,7 +114,7 @@ export interface NotificationSetting {
   productName?: string;
   threshold: number;
   recipient: string; // e.g., email address or user ID
-  channel: NotificationChannel; 
+  channel: NotificationChannel;
   isEnabled: boolean;
 }
 
@@ -125,3 +126,4 @@ export interface UserActivityLog {
   timestamp: string; // ISO date string
   details?: string; // e.g., Product ID, Request ID
 }
+
