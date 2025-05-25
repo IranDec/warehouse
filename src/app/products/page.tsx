@@ -18,6 +18,8 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 
+const ALL_FILTER_VALUE = "__ALL__";
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [filterName, setFilterName] = useState('');
@@ -177,21 +179,27 @@ export default function ProductsPage() {
             onChange={(e) => setFilterName(e.target.value)}
             className="max-w-sm h-9"
           />
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <Select 
+            value={filterCategory} 
+            onValueChange={(value) => setFilterCategory(value === ALL_FILTER_VALUE ? "" : value)}
+          >
             <SelectTrigger className="w-full md:w-[180px] h-9">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value={ALL_FILTER_VALUE}>All Categories</SelectItem>
               {MOCK_CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select 
+            value={filterStatus} 
+            onValueChange={(value) => setFilterStatus(value === ALL_FILTER_VALUE ? "" : value)}
+          >
             <SelectTrigger className="w-full md:w-[180px] h-9">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value={ALL_FILTER_VALUE}>All Statuses</SelectItem>
               {PRODUCT_STATUS_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             </SelectContent>
           </Select>

@@ -12,27 +12,11 @@ import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS } from '@/lib/constants';
 import type { InventoryTransaction, InventoryTransactionType, Product } from '@/lib/types';
 import { ListOrdered, BarChartHorizontalBig, Filter, Package } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
-import { DateRangePicker } from '@/components/common/date-range-picker'; // Assuming this component exists or will be created
+import { DateRangePicker } from '@/components/common/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { addDays, format } from 'date-fns';
 
-// Dummy DateRangePicker for now
-const DateRangePickerPlaceholder = ({ date, onDateChange }: { date?: DateRange, onDateChange: (date?: DateRange) => void}) => (
-  <Button variant="outline" className="w-full md:w-auto h-9 justify-start text-left font-normal">
-    {date?.from ? (
-      date.to ? (
-        <>
-          {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-        </>
-      ) : (
-        format(date.from, "LLL dd, y")
-      )
-    ) : (
-      <span>Pick a date range</span>
-    )}
-  </Button>
-);
-
+const ALL_FILTER_VALUE = "__ALL__";
 
 const TRANSACTION_TYPES: InventoryTransactionType[] = ['Inflow', 'Outflow', 'Return', 'Damage', 'Adjustment', 'Initial'];
 
@@ -93,26 +77,31 @@ export default function InventoryPage() {
 
       <div className="space-y-4 pt-2">
         <div className="flex flex-col md:flex-row gap-2 items-center">
-          <Select value={filterProduct} onValueChange={setFilterProduct}>
+          <Select 
+            value={filterProduct} 
+            onValueChange={(value) => setFilterProduct(value === ALL_FILTER_VALUE ? "" : value)}
+          >
             <SelectTrigger className="w-full md:w-[200px] h-9">
               <SelectValue placeholder="All Products" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Products</SelectItem>
+              <SelectItem value={ALL_FILTER_VALUE}>All Products</SelectItem>
               {MOCK_PRODUCTS.map(prod => <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterType} onValueChange={setFilterType}>
+          <Select 
+            value={filterType} 
+            onValueChange={(value) => setFilterType(value === ALL_FILTER_VALUE ? "" : value)}
+          >
             <SelectTrigger className="w-full md:w-[180px] h-9">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value={ALL_FILTER_VALUE}>All Types</SelectItem>
               {TRANSACTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
             </SelectContent>
           </Select>
-          {/* Replace DateRangePickerPlaceholder with actual DateRangePicker if available */}
-          <DateRangePickerPlaceholder date={dateRange} onDateChange={setDateRange} />
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           <Button variant="ghost" onClick={() => { setFilterProduct(''); setFilterType(''); setDateRange({ from: addDays(new Date(), -30), to: new Date() }); }} className="h-9">
             <Filter className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
@@ -122,53 +111,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-// Basic DateRangePicker component if not already present in shadcn/ui (as of my knowledge cutoff)
-// For actual use, you'd typically use a library or a more complete shadcn component.
-// This is a simplified version for the sake of this example.
-// import { CalendarIcon } from "lucide-react"
-// import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-// import { Calendar } from "@/components/ui/calendar"
-
-// function DateRangePicker({ date, onDateChange, className }: { date?: DateRange, onDateChange: (date?: DateRange) => void, className?: string }) {
-//   return (
-//     <div className={cn("grid gap-2", className)}>
-//       <Popover>
-//         <PopoverTrigger asChild>
-//           <Button
-//             id="date"
-//             variant={"outline"}
-//             className={cn(
-//               "w-full md:w-[300px] h-9 justify-start text-left font-normal",
-//               !date && "text-muted-foreground"
-//             )}
-//           >
-//             <CalendarIcon className="mr-2 h-4 w-4" />
-//             {date?.from ? (
-//               date.to ? (
-//                 <>
-//                   {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-//                 </>
-//               ) : (
-//                 format(date.from, "LLL dd, y")
-//               )
-//             ) : (
-//               <span>Pick a date</span>
-//             )}
-//           </Button>
-//         </PopoverTrigger>
-//         <PopoverContent className="w-auto p-0" align="start">
-//           <Calendar
-//             initialFocus
-//             mode="range"
-//             defaultMonth={date?.from}
-//             selected={date}
-//             onSelect={onDateChange}
-//             numberOfMonths={2}
-//           />
-//         </PopoverContent>
-//       </Popover>
-//     </div>
-//   )
-// }
-
