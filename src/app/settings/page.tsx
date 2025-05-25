@@ -133,6 +133,41 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast, categories
   );
 }
 
+const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; permissions: string[] }> = {
+  Admin: {
+    name: "Administrator",
+    description: "Has full system access and control.",
+    permissions: [
+      "Manage users, roles, and all system settings.",
+      "Manage all products, categories, and warehouses.",
+      "Oversee all inventory transactions and material requests.",
+      "Access all reports and system logs.",
+      "Configure CMS integrations and notification systems.",
+    ],
+  },
+  WarehouseManager: {
+    name: "Warehouse Manager",
+    description: "Manages daily warehouse operations and staff.",
+    permissions: [
+      "Manage products, inventory levels, and stock transactions.",
+      "Approve or reject material requests from departments.",
+      "Manage Department Employee users (add, edit roles, assign categories).",
+      "Access operational reports (inventory, material requests, etc.).",
+      "Update product statuses and manage BOM configurations.",
+    ],
+  },
+  DepartmentEmployee: {
+    name: "Department Employee",
+    description: "Staff member of a specific department with limited access.",
+    permissions: [
+      "View products relevant to their assigned department/category.",
+      "Submit material requests for their specific department.",
+      "Update status for products within their category access.",
+      "View personal activity or department-specific reports (if configured).",
+    ],
+  },
+};
+
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -167,7 +202,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 h-auto p-1">
           <TabsTrigger value="general" className="text-xs sm:text-sm"><Palette className="mr-1 h-4 w-4 hidden sm:inline-flex" /> General</TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Users</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Users & Roles</TabsTrigger>
           <TabsTrigger value="categories" className="text-xs sm:text-sm"><Tag className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Categories</TabsTrigger>
           <TabsTrigger value="warehouses" className="text-xs sm:text-sm"><WarehouseIcon className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Warehouses</TabsTrigger>
           <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations & BOM</TabsTrigger>
@@ -201,43 +236,68 @@ export default function SettingsPage() {
 
         <TabsContent value="users">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
               <div>
-                <CardTitle>User Management</CardTitle>
+                <CardTitle>User & Role Management</CardTitle>
                 <CardDescription>
-                  {canManageUsers
-                    ? "Manage user roles. (Simulated: Changes are not persistent)."
-                    : "View users. You do not have permission to manage roles."}
+                  Manage user accounts and assign roles. Role definitions and granular permissions are managed by system administrators via backend configurations.
                 </CardDescription>
               </div>
               {canManageUsers && (
-                <Button onClick={() => setIsNewUserModalOpen(true)}>
+                <Button onClick={() => setIsNewUserModalOpen(true)} className="mt-2 sm:mt-0">
                   <UserPlus className="mr-2 h-4 w-4" /> Add New User
                 </Button>
               )}
             </CardHeader>
-            <CardContent className="space-y-4">
-              {mockUsers.map(user => (
-                <div key={user.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50">
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                    {user.role === 'DepartmentEmployee' && user.categoryAccess && (
-                         <p className="text-xs text-muted-foreground">Category: {user.categoryAccess}</p>
+            <CardContent className="space-y-6">
+              <div className="mb-8 border-b pb-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3">System Roles Overview</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  The system has the following predefined roles. In a complete system, administrators would be able
+                  to define custom roles and assign granular permissions (e.g., view specific pages, create/edit/delete specific data) for each module through a dedicated backend interface.
+                </p>
+                <div className="space-y-4">
+                  {(Object.keys(ROLE_DEFINITIONS) as UserRole[]).map((roleKey) => {
+                    const roleDef = ROLE_DEFINITIONS[roleKey];
+                    return (
+                      <div key={roleKey} className="p-3 border rounded-md bg-muted/30">
+                        <h4 className="font-semibold text-primary">{roleDef.name} <span className="text-xs text-muted-foreground">({roleKey})</span></h4>
+                        <p className="text-xs text-muted-foreground mb-1">{roleDef.description}</p>
+                        <ul className="list-disc list-inside pl-4 text-xs text-muted-foreground space-y-0.5">
+                          {roleDef.permissions.map((perm, index) => (
+                            <li key={index}>{perm}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                 <h3 className="text-lg font-semibold text-foreground mb-3">User Accounts</h3>
+                {mockUsers.map(user => (
+                  <div key={user.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 mb-2 last:mb-0">
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      {user.role === 'DepartmentEmployee' && user.categoryAccess && (
+                          <p className="text-xs text-muted-foreground">Category: {user.categoryAccess}</p>
+                      )}
+                    </div>
+                    {canManageUsers ? (
+                      <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toast={toast} categories={categories} />
+                    ) : (
+                      <span className="text-sm font-medium">{user.role}</span>
                     )}
                   </div>
-                  {canManageUsers ? (
-                    <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toast={toast} categories={categories} />
-                  ) : (
-                    <span className="text-sm font-medium">{user.role}</span>
-                  )}
-                </div>
-              ))}
-              {!canManageUsers && (
-                <p className="text-sm text-muted-foreground text-center pt-4">
-                  Contact an Administrator to manage user roles.
-                </p>
-              )}
+                ))}
+                {!canManageUsers && (
+                  <p className="text-sm text-muted-foreground text-center pt-4">
+                    Contact an Administrator to manage user roles or add new users.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
