@@ -120,25 +120,28 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 py-4 flex-grow overflow-y-auto pr-2">
-          <div>
-            <Label htmlFor="name">Product Name</Label>
-            <Controller
-              name="name"
-              control={control}
-              render={({ field }) => <Input id="name" {...field} />}
-            />
-            {errors.name && <p className="text-xs text-destructive pt-1">{errors.name.message}</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="name">Product Name</Label>
+              <Controller
+                name="name"
+                control={control}
+                render={({ field }) => <Input id="name" {...field} />}
+              />
+              {errors.name && <p className="text-xs text-destructive pt-1">{errors.name.message}</p>}
+            </div>
+
+            <div>
+              <Label htmlFor="sku">SKU</Label>
+              <Controller
+                name="sku"
+                control={control}
+                render={({ field }) => <Input id="sku" {...field} />}
+              />
+              {errors.sku && <p className="text-xs text-destructive pt-1">{errors.sku.message}</p>}
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="sku">SKU</Label>
-            <Controller
-              name="sku"
-              control={control}
-              render={({ field }) => <Input id="sku" {...field} />}
-            />
-            {errors.sku && <p className="text-xs text-destructive pt-1">{errors.sku.message}</p>}
-          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -247,7 +250,7 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
             {errors.description && <p className="text-xs text-destructive pt-1">{errors.description.message}</p>}
           </div>
 
-          <DialogFooter className="sm:justify-end gap-2 pt-4 border-t">
+          <DialogFooter className="sm:justify-end gap-2 pt-4 border-t mt-auto">
             <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel

@@ -74,7 +74,7 @@ const CHART_COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--c
 
 export default function ReportsPage() {
   const { toast } = useToast();
-  const { categories: authCategories, warehouses } = useAuth(); 
+  const { categories: authCategories, warehouses, products: contextProducts, inventoryTransactions: contextTransactions, users: authUsers } = useAuth(); 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     return {
@@ -90,27 +90,27 @@ export default function ReportsPage() {
 
   const availableProductsForFilter = useMemo(() => {
     if (filterCategory === ALL_FILTER_VALUE) {
-      return MOCK_PRODUCTS;
+      return contextProducts;
     }
-    return MOCK_PRODUCTS.filter(p => p.category === filterCategory);
-  }, [filterCategory]);
+    return contextProducts.filter(p => p.category === filterCategory);
+  }, [filterCategory, contextProducts]);
 
   const filteredTransactions = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) {
       return [];
     }
-    return MOCK_INVENTORY_TRANSACTIONS.filter(t => {
+    return contextTransactions.filter(t => {
       const transactionDate = new Date(t.date);
       const dateMatch = isWithinInterval(transactionDate, { start: dateRange.from as Date, end: dateRange.to as Date });
       
-      const productDetails = MOCK_PRODUCTS.find(p => p.id === t.productId);
+      const productDetails = contextProducts.find(p => p.id === t.productId);
       const categoryMatch = filterCategory === ALL_FILTER_VALUE || (productDetails && productDetails.category === filterCategory);
       const productMatch = filterProduct === ALL_FILTER_VALUE || t.productId === filterProduct;
       const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || t.warehouseId === filterWarehouse;
 
       return dateMatch && categoryMatch && productMatch && warehouseMatch;
     });
-  }, [dateRange, filterCategory, filterProduct, filterWarehouse]);
+  }, [dateRange, filterCategory, filterProduct, filterWarehouse, contextTransactions, contextProducts]);
 
   const overallStats = useMemo(() => {
     const calculateStats = (types: InventoryTransaction['type'][]): ReportStat => {
@@ -163,7 +163,7 @@ export default function ReportsPage() {
           productStat.totalDamaged += Math.abs(transaction.quantityChange);
           break;
         case 'Return':
-          productStat.totalReturned += transaction.quantityChange; // Returns are positive quantity changes
+          productStat.totalReturned += transaction.quantityChange; 
           break;
       }
     });
@@ -233,8 +233,8 @@ export default function ReportsPage() {
         cell: ({ row }) => {
             const quantity = row.original.quantityChange;
             const type = row.original.type;
-            if (type === 'Damage') return <span className="text-red-600">{quantity}</span>; // Damage is already negative
-            if (type === 'Return') return <span className="text-green-600">+{quantity}</span>; // Return is positive
+            if (type === 'Damage') return <span className="text-red-600">{quantity}</span>; 
+            if (type === 'Return') return <span className="text-green-600">+{quantity}</span>; 
             return <span>{quantity}</span>;
         }
     },
@@ -277,7 +277,7 @@ export default function ReportsPage() {
   }, [filteredTransactions]);
 
   const lowStockProducts = useMemo(() => {
-    return MOCK_PRODUCTS.filter(p => 
+    return contextProducts.filter(p => 
         p.quantity <= p.reorderLevel || 
         p.status === 'Low Stock' || 
         p.status === 'Out of Stock'
@@ -286,7 +286,7 @@ export default function ReportsPage() {
     }).filter(p => { 
         return filterCategory === ALL_FILTER_VALUE || p.category === filterCategory;
     });
-  }, [filterWarehouse, filterCategory]);
+  }, [filterWarehouse, filterCategory, contextProducts]);
 
   const lowStockColumns: ColumnDef<Product>[] = [
     { accessorKey: "name", header: "Product Name", cell: ({row}) => <div className="font-medium">{row.original.name}</div> },
@@ -430,7 +430,7 @@ export default function ReportsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>All Users (Activity)</SelectItem>
-                {MOCK_USERS.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
+                {authUsers.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button variant="ghost" onClick={handleClearFilters} className="h-9">

@@ -1,3 +1,4 @@
+
 // src/components/common/data-table.tsx
 "use client";
 
@@ -8,6 +9,8 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
+  getSortedRowModel, // Added for sorting
+  SortingState,      // Added for sorting
   useReactTable,
 } from "@tanstack/react-table";
 
@@ -22,13 +25,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ArrowUpDown } from "lucide-react"; // For sort icons
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   filterInputPlaceholder?: string;
-  filterColumn?: string; // The accessorKey of the column to filter by
-  actionButtons?: React.ReactNode; // Slot for buttons like "Add New"
+  filterColumn?: string; 
+  actionButtons?: React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -39,38 +43,32 @@ export function DataTable<TData, TValue>({
   actionButtons,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = React.useState("");
+  const [sorting, setSorting] = React.useState<SortingState>([]); // Added for sorting
 
   const table = useReactTable({
     data,
     columns,
     state: {
       globalFilter,
+      sorting, // Added for sorting
     },
     onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting, // Added for sorting
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(), // Added for sorting
   });
-
-  React.useEffect(() => {
-    // If a specific filter column is provided, set it as the column to filter
-    if (filterColumn) {
-        // This is a simplified global filter. For specific column filtering,
-        // you'd set columnFilters state and pass it to the table.
-        // For now, global filter will search all columns.
-    }
-  }, [filterColumn]);
-
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
         {filterColumn && (
              <Input
                 placeholder={filterInputPlaceholder}
                 value={globalFilter ?? ""}
                 onChange={(event) => setGlobalFilter(String(event.target.value))}
-                className="max-w-sm h-9"
+                className="w-full sm:max-w-sm h-9"
             />
         )}
         <div className="ml-auto">{actionButtons}</div>
@@ -82,13 +80,25 @@ export function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} style={{ width: header.getSize() !== 0 ? header.getSize() : undefined }}>
                       {header.isPlaceholder
                         ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                        : (
+                          <Button
+                            variant="ghost"
+                            onClick={header.column.getToggleSortingHandler()}
+                            className="px-2 py-1 h-auto -ml-2 hover:bg-muted disabled:opacity-100 disabled:cursor-default"
+                            disabled={!header.column.getCanSort()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {header.column.getCanSort() && header.column.getIsSorted() === "asc" && <ArrowUpDown className="ml-2 h-3 w-3 rotate-180" />}
+                            {header.column.getCanSort() && header.column.getIsSorted() === "desc" && <ArrowUpDown className="ml-2 h-3 w-3" />}
+                            {header.column.getCanSort() && !header.column.getIsSorted() && <ArrowUpDown className="ml-2 h-3 w-3 opacity-30" />}
+                          </Button>
+                        )}
                     </TableHead>
                   );
                 })}

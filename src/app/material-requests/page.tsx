@@ -65,9 +65,8 @@ const StatDisplayCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, co
 
 
 export default function MaterialRequestsPage() {
-  const { currentUser, materialRequests, addMaterialRequest, updateMaterialRequest: contextUpdateMaterialRequest } = useAuth();
+  const { currentUser, materialRequests, addMaterialRequest, updateMaterialRequest: contextUpdateMaterialRequest, users: authUsers } = useAuth();
   const { toast } = useToast();
-  // const [requests, setRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS); // Now from context
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaterialRequest | null>(null);
   
@@ -92,9 +91,13 @@ export default function MaterialRequestsPage() {
   }, [canManageRequests, canCreateRequests]);
 
   const uniqueRequesters = useMemo(() => {
+    // Use authUsers for consistent list of possible requesters if available
+    if (authUsers && authUsers.length > 0) {
+        return authUsers.filter(u => u.role === 'DepartmentEmployee' || materialRequests.some(r => r.requesterId === u.id)).map(u => u.name).sort();
+    }
     const requesters = new Set(materialRequests.map(r => r.requesterName));
     return Array.from(requesters).sort();
-  }, [materialRequests]); 
+  }, [materialRequests, authUsers]); 
 
   const uniqueDepartments = useMemo(() => {
     const departments = new Set(materialRequests.map(r => r.departmentCategory));
@@ -102,11 +105,11 @@ export default function MaterialRequestsPage() {
   }, [materialRequests]); 
 
   const handleAddNewRequestFromPage = (newRequestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
-    addMaterialRequest(newRequestData); // Uses the context function
+    addMaterialRequest(newRequestData); 
   };
 
   const handleUpdateRequest = (updatedRequest: MaterialRequest) => {
-    contextUpdateMaterialRequest(updatedRequest); // Uses the context function
+    contextUpdateMaterialRequest(updatedRequest); 
   }
 
   const handleAction = (requestId: string, newStatus: MaterialRequestStatus, notes?: string) => {
@@ -203,6 +206,7 @@ export default function MaterialRequestsPage() {
     {
       accessorKey: "items",
       header: "Items Requested",
+      enableSorting: false,
       cell: ({ row }) => {
         const items = row.original.items;
         if (!items || items.length === 0) return "No items";
@@ -257,6 +261,7 @@ export default function MaterialRequestsPage() {
     {
         id: "approverAction",
         header: "Approver/Action Info",
+        enableSorting: false,
         cell: ({ row }) => {
             const { approverName, approverNotes, status, actionDate } = row.original;
             if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate && !row.original.actionDate)) { 
@@ -278,6 +283,7 @@ export default function MaterialRequestsPage() {
     },
     {
       id: "actions",
+      enableSorting: false,
       cell: ({ row }) => {
         const request = row.original;
         const isRequester = currentUser?.id === request.requesterId;
@@ -345,7 +351,7 @@ export default function MaterialRequestsPage() {
         }
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <StatDisplayCard title="Pending" value={summaryStats.Pending} icon={Hourglass} colorClass="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700" />
         <StatDisplayCard title="Approved" value={summaryStats.Approved} icon={ThumbsUp} colorClass="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700" />
         <StatDisplayCard title="Completed" value={summaryStats.Completed} icon={PackageCheck} colorClass="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700" />
@@ -410,7 +416,7 @@ export default function MaterialRequestsPage() {
             const updatedReq = {
               ...editingRequest,
               ...data,
-              items: data.items, // Ensure items are correctly passed
+              items: data.items, 
               requestedDate: data.requestedDate,
               reasonForRequest: data.reasonForRequest,
             };

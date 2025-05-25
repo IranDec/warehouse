@@ -25,8 +25,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 
 export default function ProductsPage() {
-  const { currentUser, categories, warehouses } = useAuth(); // Added warehouses
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const { currentUser, categories, warehouses, products: contextProducts, setProducts: setContextProducts } = useAuth(); 
+  // Use products from context now
+  // const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS); 
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
   const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
@@ -54,13 +55,13 @@ export default function ProductsPage() {
       skipEmptyLines: true,
       complete: (results) => {
         try {
-          const newProducts: Product[] = results.data.map((row: any) => {
+          const importedProductsData: Product[] = results.data.map((row: any) => {
             if (!row.id || !row.name || !row.sku) {
               throw new Error(`Missing required fields (id, name, sku) in row: ${JSON.stringify(row)}`);
             }
             const warehouseExists = warehouses.some(wh => wh.id === String(row.warehouseId || ''));
             if (!warehouseExists && row.warehouseId) {
-                toast({ title: "Import Warning", description: `Warehouse ID '${row.warehouseId}' for product '${row.name}' does not exist. Product will be assigned to default or no warehouse. Ensure 'warehouseId' matches an existing warehouse ID.`, variant: "default" });
+                toast({ title: "Import Warning", description: `Warehouse ID '${row.warehouseId}' for product '${row.name}' does not exist. Product will be assigned to default or no warehouse. Ensure 'warehouseId' matches an existing warehouse ID.`, variant: "default", duration: 7000 });
             }
             return {
               id: String(row.id),
@@ -70,18 +71,18 @@ export default function ProductsPage() {
               quantity: parseInt(row.quantity || '0', 10),
               reorderLevel: parseInt(row.reorderLevel || '0', 10),
               warehouseId: warehouseExists ? String(row.warehouseId) : warehouses[0]?.id || 'wh1',
-              status: (row.status as ProductStatus) || 'Available',
+              status: (PRODUCT_STATUS_OPTIONS.find(opt => opt.value.toLowerCase() === String(row.status || '').toLowerCase())?.value as ProductStatus) || 'Available',
               lastUpdated: new Date().toISOString(),
               imageUrl: String(row.imageUrl || 'https://placehold.co/100x100.png'),
               description: String(row.description || ''),
             };
           });
 
-          const productMap = new Map(products.map(p => [p.id, p]));
-          newProducts.forEach(np => productMap.set(np.id, np));
+          const productMap = new Map(contextProducts.map(p => [p.id, p]));
+          importedProductsData.forEach(np => productMap.set(np.id, np));
 
-          setProducts(Array.from(productMap.values()));
-          toast({ title: "Products Imported", description: `${newProducts.length} products processed from ${file.name}.` });
+          setContextProducts(Array.from(productMap.values()));
+          toast({ title: "Products Imported", description: `${importedProductsData.length} products processed from ${file.name}.` });
         } catch (error: any) {
           console.error("Error processing product import CSV:", error);
           toast({ title: "Import Error", description: `Failed to import products: ${error.message}`, variant: "destructive" });
@@ -107,7 +108,7 @@ export default function ProductsPage() {
           const updates = results.data as Array<{ sku: string, quantity?: string, reorderLevel?: string }>;
           let updatedCount = 0;
 
-          setProducts(prevProducts => {
+          setContextProducts(prevProducts => {
             const newProductsState = prevProducts.map(p => {
               const update = updates.find(u => u.sku === p.sku);
               if (update) {
@@ -143,7 +144,7 @@ export default function ProductsPage() {
   };
 
   const handleSaveStatus = (productId: string, newStatus: ProductStatus, newDescription?: string) => {
-    setProducts(prevProducts =>
+    setContextProducts(prevProducts =>
       prevProducts.map(p =>
         p.id === productId ? { ...p, status: newStatus, description: newDescription || p.description, lastUpdated: new Date().toISOString() } : p
       )
@@ -158,10 +159,10 @@ export default function ProductsPage() {
 
   const handleSaveProduct = (productData: Product) => {
     if (editingProduct) { 
-      setProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
+      setContextProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
       toast({ title: "Product Updated", description: `${productData.name} has been updated.`});
     } else { 
-      setProducts(prev => [{...productData, id: `prod${Date.now()}`}, ...prev]);
+      setContextProducts(prev => [{...productData, id: `prod${Date.now()}`}, ...prev]);
       toast({ title: "Product Added", description: `${productData.name} has been added.`});
     }
     setEditingProduct(null);
@@ -173,9 +174,9 @@ export default function ProductsPage() {
   };
 
   const filteredProducts = useMemo(() => {
-    let userAllowedProducts = products;
+    let userAllowedProducts = contextProducts;
     if (currentUser?.role === 'DepartmentEmployee' && currentUser.categoryAccess) {
-      userAllowedProducts = products.filter(product => product.category === currentUser.categoryAccess);
+      userAllowedProducts = contextProducts.filter(product => product.category === currentUser.categoryAccess);
     }
 
     return userAllowedProducts.filter(product => {
@@ -185,7 +186,7 @@ export default function ProductsPage() {
       const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : product.warehouseId === filterWarehouse;
       return nameMatch && categoryMatch && statusMatch && warehouseMatch;
     });
-  }, [products, filterName, filterCategory, filterStatus, filterWarehouse, currentUser]);
+  }, [contextProducts, filterName, filterCategory, filterStatus, filterWarehouse, currentUser]);
 
   const columns: ColumnDef<Product>[] = [
     {
@@ -201,6 +202,7 @@ export default function ProductsPage() {
           data-ai-hint="product package"
         />
       ),
+      enableSorting: false,
     },
     {
       accessorKey: "name",
@@ -239,6 +241,7 @@ export default function ProductsPage() {
     },
     {
       id: "actions",
+      enableSorting: false,
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -269,7 +272,7 @@ export default function ProductsPage() {
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                   onClick={() => { 
-                    setProducts(prev => prev.filter(p => p.id !== row.original.id));
+                    setContextProducts(prev => prev.filter(p => p.id !== row.original.id));
                     toast({title: "Product Deleted", description: `Product ${row.original.name} has been deleted (simulated).`, variant: "destructive"})
                   }}
                 >
@@ -313,7 +316,7 @@ export default function ProductsPage() {
           <div className="lg:col-span-1 p-6 bg-card rounded-lg shadow-lg border">
             <h3 className="text-lg font-semibold mb-2 text-foreground">Product Insights</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Currently managing <span className="font-bold text-primary">{products.length}</span> distinct products across <span className="font-bold text-primary">{warehouses.length}</span> warehouses.
+              Currently managing <span className="font-bold text-primary">{contextProducts.length}</span> distinct products across <span className="font-bold text-primary">{warehouses.length}</span> warehouses.
               Monitor stock levels and statuses to ensure optimal inventory management.
             </p>
             <Image src="https://placehold.co/300x150.png" alt="Product insights placeholder" width={300} height={150} className="rounded-md w-full" data-ai-hint="warehouse shelves" />
@@ -339,7 +342,7 @@ export default function ProductsPage() {
             placeholder="Filter by name or SKU..."
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
-            className="max-w-xs h-9"
+            className="w-full md:max-w-xs h-9"
           />
           <Select
             value={filterCategory}

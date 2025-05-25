@@ -2,8 +2,8 @@
 // src/contexts/auth-context.tsx
 "use client";
 
-import type { User, UserRole, Category, Warehouse, NotificationSetting, MaterialRequest, RequestedItem } from '@/lib/types';
-import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES, MOCK_NOTIFICATION_SETTINGS, MOCK_MATERIAL_REQUESTS } from '@/lib/constants';
+import type { User, UserRole, Category, Warehouse, NotificationSetting, MaterialRequest, RequestedItem, Product, InventoryTransaction } from '@/lib/types';
+import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES, MOCK_NOTIFICATION_SETTINGS, MOCK_MATERIAL_REQUESTS, MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS } from '@/lib/constants';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,29 +13,41 @@ interface AuthContextType {
   users: User[];
   updateUserRole: (userId: string, newRole: User['role'], newCategoryAccess?: string) => void;
   addNewUser: (userData: Omit<User, 'id' | 'avatarFallback' | 'role'> & { role: UserRole }) => void;
+  
   categories: Category[];
   addCategory: (categoryData: Omit<Category, 'id'>) => void;
+  
   warehouses: Warehouse[];
   addWarehouse: (warehouseData: Omit<Warehouse, 'id'>) => void;
   updateWarehouse: (warehouseData: Warehouse) => void;
+  
   notificationSettings: NotificationSetting[];
   addNotificationSetting: (settingData: Omit<NotificationSetting, 'id'>) => void;
   updateNotificationSetting: (settingData: NotificationSetting) => void;
   deleteNotificationSetting: (settingId: string) => void;
+  
   materialRequests: MaterialRequest[];
   addMaterialRequest: (requestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => void;
   updateMaterialRequest: (updatedRequest: MaterialRequest) => void;
+
+  products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+
+  inventoryTransactions: InventoryTransaction[];
+  setInventoryTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { toast } = useToast(); // Use toast from here
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
   const [warehouses, setWarehouses] = useState<Warehouse[]>(MOCK_WAREHOUSES);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSetting[]>(MOCK_NOTIFICATION_SETTINGS);
   const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS);
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS); // Added products state
+  const [inventoryTransactions, setInventoryTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS); // Added transactions state
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     return users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null;
@@ -161,6 +173,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       materialRequests,
       addMaterialRequest,
       updateMaterialRequest,
+      products, // Provide products
+      setProducts, // Provide setProducts
+      inventoryTransactions, // Provide inventoryTransactions
+      setInventoryTransactions, // Provide setInventoryTransactions
     }}>
       {children}
     </AuthContext.Provider>
@@ -174,4 +190,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

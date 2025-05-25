@@ -16,13 +16,13 @@ import { DateRangePicker } from '@/components/common/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { addDays } from 'date-fns';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
-import { useAuth } from '@/contexts/auth-context'; // Added warehouses
+import { useAuth } from '@/contexts/auth-context'; 
 
 const TRANSACTION_TYPES: InventoryTransactionType[] = ['Inflow', 'Outflow', 'Return', 'Damage', 'Adjustment', 'Initial'];
 
 export default function InventoryPage() {
-  const { warehouses } = useAuth(); // Get warehouses from context
-  const [transactions, setTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
+  const { warehouses, products: contextProducts, inventoryTransactions: contextTransactions } = useAuth(); 
+  // const [transactions, setTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
   const [filterProduct, setFilterProduct] = useState<string>(ALL_FILTER_VALUE);
   const [filterType, setFilterType] = useState<string>(ALL_FILTER_VALUE);
   const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE);
@@ -33,12 +33,12 @@ export default function InventoryPage() {
   });
 
   const uniqueUsers = useMemo(() => {
-    const users = new Set(transactions.map(t => t.user));
+    const users = new Set(contextTransactions.map(t => t.user));
     return Array.from(users).sort();
-  }, [transactions]);
+  }, [contextTransactions]);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(transaction => {
+    return contextTransactions.filter(transaction => {
       const productMatch = filterProduct === ALL_FILTER_VALUE || filterProduct === "" ? true : transaction.productId === filterProduct;
       const typeMatch = filterType === ALL_FILTER_VALUE || filterType === "" ? true : transaction.type === filterType;
       const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || filterWarehouse === "" ? true : transaction.warehouseId === filterWarehouse;
@@ -49,7 +49,7 @@ export default function InventoryPage() {
         : true;
       return productMatch && typeMatch && warehouseMatch && userMatch && dateMatch;
     });
-  }, [transactions, filterProduct, filterType, filterWarehouse, filterUser, dateRange]);
+  }, [contextTransactions, filterProduct, filterType, filterWarehouse, filterUser, dateRange]);
 
   const columns: ColumnDef<InventoryTransaction>[] = [
     {
@@ -110,7 +110,7 @@ export default function InventoryPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_FILTER_VALUE}>All Products</SelectItem>
-              {MOCK_PRODUCTS.map(prod => <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>)}
+              {contextProducts.map(prod => <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select 
