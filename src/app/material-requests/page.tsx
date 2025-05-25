@@ -2,15 +2,18 @@
 // src/app/material-requests/page.tsx
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, PlusCircle, Filter, MoreHorizontal, CheckCircle, XCircle, Edit, Ban } from "lucide-react";
+import { 
+  ClipboardList, PlusCircle, Filter, MoreHorizontal, CheckCircle, XCircle, 
+  Edit, Ban, Hourglass, ThumbsUp, ThumbsDown, CircleSlash, PackageCheck 
+} from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAuth } from '@/contexts/auth-context';
-import type { MaterialRequest, MaterialRequestStatus, UserRole, RequestedItem } from '@/lib/types';
+import type { MaterialRequest, MaterialRequestStatus, RequestedItem } from '@/lib/types';
 import { MOCK_MATERIAL_REQUESTS, MATERIAL_REQUEST_STATUS_OPTIONS, ALL_FILTER_VALUE } from '@/lib/constants';
 import { NewMaterialRequestModal } from '@/components/material-requests/new-request-modal';
 import { useToast } from '@/hooks/use-toast';
@@ -34,9 +37,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DateRangePicker } from '@/components/common/date-range-picker';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import type { DateRange } from 'react-day-picker';
-import { addDays, startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
+import { addDays, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { cn } from "@/lib/utils";
+import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
+
+
+interface StatCardProps {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  colorClass?: string;
+}
+
+const StatDisplayCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, colorClass }) => (
+  <Card className={cn("shadow-sm", colorClass)}>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <Icon className="h-5 w-5 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{value}</div>
+    </CardContent>
+  </Card>
+);
 
 
 export default function MaterialRequestsPage() {
@@ -46,7 +71,6 @@ export default function MaterialRequestsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaterialRequest | null>(null);
   
-  // Filter states
   const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
   const [filterRequester, setFilterRequester] = useState<string>(ALL_FILTER_VALUE);
   const [filterDepartment, setFilterDepartment] = useState<string>(ALL_FILTER_VALUE);
@@ -59,26 +83,25 @@ export default function MaterialRequestsPage() {
 
   const pageDescription = useMemo(() => {
     if (canManageRequests) {
-      return "Review, approve, or reject material requests submitted by departments. You can also track the status of all requests using the filters below.";
+      return "Review, approve, or reject material requests. Track status using filters.";
     }
     if (canCreateRequests) {
-      return "Submit new requests for materials for your department. You can view, edit (if pending), or cancel your submitted requests.";
+      return "Submit new requests, view, edit (if pending), or cancel your requests.";
     }
-    return "View material requests. Contact an administrator for more permissions or to submit requests.";
+    return "View material requests. Contact an administrator for more permissions.";
   }, [canManageRequests, canCreateRequests]);
 
   const uniqueRequesters = useMemo(() => {
-    const requesters = new Set(MOCK_MATERIAL_REQUESTS.map(r => r.requesterName));
+    const requesters = new Set(requests.map(r => r.requesterName));
     return Array.from(requesters).sort();
-  }, []); 
+  }, [requests]); 
 
   const uniqueDepartments = useMemo(() => {
-    const departments = new Set(MOCK_MATERIAL_REQUESTS.map(r => r.departmentCategory));
+    const departments = new Set(requests.map(r => r.departmentCategory));
     return Array.from(departments).sort();
-  }, []); 
+  }, [requests]); 
 
-
-  const handleAddNewRequest = (newRequest: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
+  const handleAddNewRequest = (newRequestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
     if (!currentUser) return;
     const fullNewRequest: MaterialRequest = {
       id: `mr${Date.now()}`, 
@@ -87,7 +110,7 @@ export default function MaterialRequestsPage() {
       requesterId: currentUser.id,
       requesterName: currentUser.name,
       departmentCategory: currentUser.categoryAccess || 'N/A',
-      ...newRequest,
+      ...newRequestData,
     };
     setRequests(prev => [fullNewRequest, ...prev]);
     toast({ title: "Material Request Submitted", description: "Your request has been submitted for approval." });
@@ -108,7 +131,7 @@ export default function MaterialRequestsPage() {
     }
     
     const isManagerAction = (newStatus === 'Approved' || newStatus === 'Rejected') && canManageRequests;
-    const isRequesterAction = newStatus === 'Cancelled' && requestToUpdate.requesterId === currentUser.id;
+    const isRequesterAction = newStatus === 'Cancelled' && requestToUpdate.requesterId === currentUser.id && requestToUpdate.status === 'Pending';
 
     if (!isManagerAction && !isRequesterAction) {
         toast({ title: "Permission Denied", description: "You do not have permission to perform this action.", variant: "destructive"});
@@ -135,7 +158,6 @@ export default function MaterialRequestsPage() {
     }
   };
 
-
   const filteredRequests = useMemo(() => {
     return requests.filter(request => {
       const statusMatch = filterStatus === ALL_FILTER_VALUE ? true : request.status === filterStatus;
@@ -145,8 +167,8 @@ export default function MaterialRequestsPage() {
       let submissionDateMatch = true;
       if (filterSubmissionDate?.from && filterSubmissionDate?.to) {
         try {
-          const submissionDate = new Date(request.submissionDate);
-          submissionDateMatch = isWithinInterval(submissionDate, { 
+          const submissionDateObj = parseISO(request.submissionDate);
+          submissionDateMatch = isWithinInterval(submissionDateObj, { 
             start: startOfDay(filterSubmissionDate.from), 
             end: endOfDay(filterSubmissionDate.to) 
           });
@@ -156,17 +178,16 @@ export default function MaterialRequestsPage() {
         }
       } else if (filterSubmissionDate?.from) {
          try {
-          const submissionDate = new Date(request.submissionDate);
-          submissionDateMatch = submissionDate >= startOfDay(filterSubmissionDate.from);
+          const submissionDateObj = parseISO(request.submissionDate);
+          submissionDateMatch = submissionDateObj >= startOfDay(filterSubmissionDate.from);
         } catch (e) {
            console.error("Error parsing submission date for filtering (from only):", request.submissionDate, e);
            submissionDateMatch = false;
         }
       }
 
-
       let userSpecificFilter = true;
-      if (currentUser?.role === 'DepartmentEmployee' && !canManageRequests) { // Ensure managers see all
+      if (currentUser?.role === 'DepartmentEmployee' && !canManageRequests) {
         userSpecificFilter = request.requesterId === currentUser.id;
       }
 
@@ -174,6 +195,16 @@ export default function MaterialRequestsPage() {
     });
   }, [requests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate, canManageRequests]);
   
+  const summaryStats = useMemo(() => {
+    const stats: Record<MaterialRequestStatus, number> = {
+      Pending: 0, Approved: 0, Rejected: 0, Completed: 0, Cancelled: 0,
+    };
+    filteredRequests.forEach(req => {
+      stats[req.status]++;
+    });
+    return stats;
+  }, [filteredRequests]);
+
   const clearAllFilters = () => {
     setFilterStatus(ALL_FILTER_VALUE);
     setFilterRequester(ALL_FILTER_VALUE);
@@ -191,13 +222,20 @@ export default function MaterialRequestsPage() {
       cell: ({ row }) => {
         const items = row.original.items;
         if (!items || items.length === 0) return "No items";
+        const displayItems = items.slice(0, 2);
+        const remainingCount = items.length - displayItems.length;
+        const fullListText = items.map(item => `${item.productName} (Qty: ${item.quantity})`).join('\n');
+
         return (
-          <ul className="list-disc list-inside text-xs max-w-[200px] truncate">
-            {items.map(item => (
-              <li key={item.productId} title={`${item.productName} (Qty: ${item.quantity})`}>{`${item.productName} (Qty: ${item.quantity})`}</li>
-            ))}
-          </ul>
-        )
+          <div title={fullListText} className="max-w-[200px]">
+            <ul className="list-disc list-inside text-xs truncate">
+              {displayItems.map(item => (
+                <li key={item.productId}>{`${item.productName} (Qty: ${item.quantity})`}</li>
+              ))}
+            </ul>
+            {remainingCount > 0 && <span className="text-xs text-muted-foreground">...and {remainingCount} more</span>}
+          </div>
+        );
       }
     },
     { 
@@ -208,7 +246,7 @@ export default function MaterialRequestsPage() {
     {
       accessorKey: "requestedDate",
       header: "Date Needed",
-      cell: ({ row }) => new Date(row.original.requestedDate).toLocaleDateString(),
+      cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.requestedDate} formatString="PP" />,
     },
     {
       accessorKey: "status",
@@ -224,31 +262,34 @@ export default function MaterialRequestsPage() {
             case "Cancelled": badgeClass = "bg-slate-500/20 text-slate-700 dark:text-slate-400 border-slate-500/50 hover:bg-slate-500/30"; break;
             default: badgeClass = "bg-secondary text-secondary-foreground border-transparent";
         }
-        
         return <Badge variant="outline" className={cn("font-medium", badgeClass)}>{status}</Badge>;
       },
     },
     {
       accessorKey: "submissionDate",
       header: "Submitted On",
-      cell: ({ row }) => format(new Date(row.original.submissionDate), "PP"),
+      cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.submissionDate} formatString="PP" />,
     },
     {
         id: "approverAction",
         header: "Approver/Action Info",
         cell: ({ row }) => {
             const { approverName, approverNotes, status, actionDate } = row.original;
-            if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate)) {
+            if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate && !row.original.actionDate)) { // Check row.original.actionDate too
                  return <span className="text-xs text-muted-foreground">N/A</span>;
             }
             return (
                 <div className="text-xs">
                     {approverName && <p className="font-medium">{approverName}</p>}
-                    {actionDate && <p className="text-muted-foreground">{format(new Date(actionDate), "PPp")}</p>}
+                    {actionDate && (
+                        <p className="text-muted-foreground">
+                            <ClientSideFormattedDate dateString={actionDate} formatString="PPp" />
+                        </p>
+                    )}
                     {approverNotes && <p className="text-muted-foreground truncate max-w-[150px]" title={approverNotes}>{approverNotes}</p>}
                     {status === 'Cancelled' && !approverName && actionDate && <p className="text-muted-foreground">Cancelled by requester</p>}
                 </div>
-            )
+            );
         }
     },
     {
@@ -305,7 +346,6 @@ export default function MaterialRequestsPage() {
     },
   ];
 
-
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
       <PageHeader
@@ -321,8 +361,19 @@ export default function MaterialRequestsPage() {
         }
       />
 
-      <div className="space-y-4 pt-2">
-         <div className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+        <StatDisplayCard title="Pending" value={summaryStats.Pending} icon={Hourglass} colorClass="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700" />
+        <StatDisplayCard title="Approved" value={summaryStats.Approved} icon={ThumbsUp} colorClass="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700" />
+        <StatDisplayCard title="Completed" value={summaryStats.Completed} icon={PackageCheck} colorClass="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700" />
+        <StatDisplayCard title="Rejected" value={summaryStats.Rejected} icon={ThumbsDown} colorClass="bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700" />
+        <StatDisplayCard title="Cancelled" value={summaryStats.Cancelled} icon={CircleSlash} colorClass="bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-700" />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Requests</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
             <DateRangePicker date={filterSubmissionDate} onDateChange={setFilterSubmissionDate} />
             <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value)}>
               <SelectTrigger className="w-full md:w-[180px] h-9">
@@ -362,9 +413,10 @@ export default function MaterialRequestsPage() {
             <Button variant="ghost" onClick={clearAllFilters} className="h-9">
               <Filter className="mr-2 h-4 w-4" /> Clear All Filters
             </Button>
-        </div>
-        <DataTable columns={columns} data={filteredRequests} filterColumn="id" filterInputPlaceholder="Filter by Request ID..."/>
-      </div>
+        </CardContent>
+      </Card>
+
+      <DataTable columns={columns} data={filteredRequests} filterColumn="id" filterInputPlaceholder="Filter by Request ID..."/>
 
       {currentUser && (
         <NewMaterialRequestModal
@@ -399,13 +451,13 @@ export default function MaterialRequestsPage() {
               <AlertDialogCancel onClick={() => setShowCancelConfirm(null)}>No, keep request</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                     if (showCancelConfirm?.requesterId === currentUser?.id) {
+                     if (showCancelConfirm?.requesterId === currentUser?.id && showCancelConfirm.status === 'Pending') {
                         handleAction(showCancelConfirm.id, 'Cancelled');
                     } else {
-                        toast({ title: "Permission Denied", description: "Only the requester can cancel this request.", variant: "destructive"});
+                        toast({ title: "Action Denied", description: "Only the requester can cancel a pending request.", variant: "destructive"});
                     }
                 }}
-                className="bg-orange-600 text-orange-50 hover:bg-orange-700"
+                className="bg-orange-600 text-orange-50 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-800"
               >
                 Yes, Cancel Request
               </AlertDialogAction>
@@ -416,5 +468,3 @@ export default function MaterialRequestsPage() {
     </div>
   );
 }
-
-  

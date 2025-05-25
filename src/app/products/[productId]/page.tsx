@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { AddEditProductModal } from '@/components/product/add-edit-product-modal';
 import { ProductStatusModal } from '@/components/product/product-status-modal';
 import { useToast } from '@/hooks/use-toast';
+import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -46,14 +47,11 @@ export default function ProductDetailPage() {
   }, [productId]);
 
   const handleSaveProduct = (updatedProduct: Product) => {
-    // In a real app, this would be an API call.
-    // For mock, we'll update MOCK_PRODUCTS (though this won't persist across reloads without further state management)
-    // and then update the local state.
     const productIndex = MOCK_PRODUCTS.findIndex(p => p.id === updatedProduct.id);
     if (productIndex !== -1) {
       MOCK_PRODUCTS[productIndex] = updatedProduct;
     }
-    setProduct(updatedProduct); // Update local state to reflect changes immediately
+    setProduct(updatedProduct); 
     const updatedWarehouse = MOCK_WAREHOUSES.find(wh => wh.id === updatedProduct.warehouseId);
     setWarehouse(updatedWarehouse || null);
     toast({ title: "Product Updated", description: `${updatedProduct.name} has been updated.` });
@@ -62,7 +60,6 @@ export default function ProductDetailPage() {
   const handleSaveStatus = (pid: string, newStatus: Product['status'], newDescription?: string) => {
     if (product && product.id === pid) {
       const updatedProduct = { ...product, status: newStatus, description: newDescription || product.description, lastUpdated: new Date().toISOString() };
-       // Update MOCK_PRODUCTS as well for consistency if user navigates away and back
       const productIndex = MOCK_PRODUCTS.findIndex(p => p.id === pid);
       if (productIndex !== -1) {
         MOCK_PRODUCTS[productIndex] = updatedProduct;
@@ -96,7 +93,6 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Access control for viewing: DepartmentEmployee can only view if category matches
   if (currentUser?.role === 'DepartmentEmployee' && currentUser.categoryAccess !== product.category) {
      return (
       <div className="space-y-6 p-4 md:p-6 lg:p-8 text-center">
@@ -115,8 +111,8 @@ export default function ProductDetailPage() {
   }
 
   const getStatusBadgeClass = (status: Product['status']) => {
-     if (status === 'Low Stock') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-     if (status === 'Available') return 'bg-green-100 text-green-800 border-green-300';
+     if (status === 'Low Stock') return 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-800/30 dark:text-yellow-300 dark:border-yellow-700';
+     if (status === 'Available') return 'bg-green-100 text-green-800 border-green-300 dark:bg-green-800/30 dark:text-green-300 dark:border-green-700';
      return '';
   }
 
@@ -194,7 +190,7 @@ export default function ProductDetailPage() {
               </div>
               <div className="flex justify-between">
                 <span className="font-medium text-muted-foreground">Last Updated:</span>
-                <span>{new Date(product.lastUpdated).toLocaleDateString()}</span>
+                <span><ClientSideFormattedDate dateString={product.lastUpdated} formatString="PP" /></span>
               </div>
             </CardContent>
           </Card>

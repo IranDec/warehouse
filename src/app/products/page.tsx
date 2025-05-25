@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link'; // Added Link import
+import Link from 'next/link'; 
 import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { FileUploadCard } from "@/components/common/file-upload-card";
@@ -15,13 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { MOCK_PRODUCTS, PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
-import type { Product, ProductStatus, Warehouse } from '@/lib/types';
-import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Home, Edit, PlusCircle } from 'lucide-react';
+import type { Product, ProductStatus } from '@/lib/types';
+import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Edit, PlusCircle } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
 import { useAuth } from '@/contexts/auth-context';
+import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 
 export default function ProductsPage() {
   const { currentUser, categories } = useAuth();
@@ -226,15 +227,15 @@ export default function ProductsPage() {
         if (status === "Out of Stock" || status === "Damaged") badgeVariant = "destructive";
 
         return <Badge variant={badgeVariant} className={
-          status === 'Low Stock' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-          status === 'Available' ? 'bg-green-100 text-green-800 border-green-300' : ''
+          status === 'Low Stock' ? 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-800/30 dark:text-yellow-300 dark:border-yellow-700' :
+          status === 'Available' ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-800/30 dark:text-green-300 dark:border-green-700' : ''
         }>{status}</Badge>;
       },
     },
     {
       accessorKey: "lastUpdated",
       header: "Last Updated",
-      cell: ({ row }) => new Date(row.original.lastUpdated).toLocaleDateString(),
+      cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.lastUpdated} formatString="PP" />,
     },
     {
       id: "actions",
@@ -288,7 +289,7 @@ export default function ProductsPage() {
         title="Product Management"
         icon={Package}
         description="Oversee your product catalog, update stock levels, and manage statuses."
-        actions={canAddProducts ? <Button onClick={() => handleOpenAddEditModal()}><PlusCircle className="mr-2 h-4 w-4" />Add New Product (Select Warehouse in Form)</Button> : null}
+        actions={canAddProducts ? <Button onClick={() => handleOpenAddEditModal()}><PlusCircle className="mr-2 h-4 w-4" />Add New Product</Button> : null}
       />
 
       {(canAddProducts || canEditProducts) && (
@@ -384,12 +385,12 @@ export default function ProductsPage() {
         <DataTable columns={columns} data={filteredProducts} filterColumn="name" />
       </div>
 
-      <ProductStatusModal
+      {selectedProductForStatus && (<ProductStatusModal
         product={selectedProductForStatus}
         isOpen={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
         onSave={handleSaveStatus}
-      />
+      />)}
       <AddEditProductModal
         isOpen={isAddEditModalOpen}
         onClose={() => {setIsAddEditModalOpen(false); setEditingProduct(null);}}

@@ -1,3 +1,4 @@
+
 // src/app/inventory/page.tsx
 "use client";
 
@@ -8,21 +9,22 @@ import { VarianceExplainerModal } from "@/components/inventory/variance-explaine
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
-import type { InventoryTransaction, InventoryTransactionType, Product, Warehouse } from '@/lib/types';
-import { ListOrdered, Filter, Package, User as UserIcon } from 'lucide-react';
+import type { InventoryTransaction, InventoryTransactionType } from '@/lib/types';
+import { ListOrdered, Filter } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import { DateRangePicker } from '@/components/common/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { addDays } from 'date-fns';
+import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 
 const TRANSACTION_TYPES: InventoryTransactionType[] = ['Inflow', 'Outflow', 'Return', 'Damage', 'Adjustment', 'Initial'];
 
 export default function InventoryPage() {
   const [transactions, setTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
-  const [filterProduct, setFilterProduct] = useState<string>('');
-  const [filterType, setFilterType] = useState<string>('');
-  const [filterWarehouse, setFilterWarehouse] = useState<string>('');
-  const [filterUser, setFilterUser] = useState<string>('');
+  const [filterProduct, setFilterProduct] = useState<string>(ALL_FILTER_VALUE);
+  const [filterType, setFilterType] = useState<string>(ALL_FILTER_VALUE);
+  const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE);
+  const [filterUser, setFilterUser] = useState<string>(ALL_FILTER_VALUE);
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
@@ -35,10 +37,10 @@ export default function InventoryPage() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
-      const productMatch = filterProduct ? transaction.productId === filterProduct : true;
-      const typeMatch = filterType ? transaction.type === filterType : true;
-      const warehouseMatch = filterWarehouse ? transaction.warehouseId === filterWarehouse : true;
-      const userMatch = filterUser ? transaction.user === filterUser : true;
+      const productMatch = filterProduct === ALL_FILTER_VALUE ? true : transaction.productId === filterProduct;
+      const typeMatch = filterType === ALL_FILTER_VALUE ? true : transaction.type === filterType;
+      const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE ? true : transaction.warehouseId === filterWarehouse;
+      const userMatch = filterUser === ALL_FILTER_VALUE ? true : transaction.user === filterUser;
       const date = new Date(transaction.date);
       const dateMatch = dateRange?.from && dateRange?.to 
         ? date >= dateRange.from && date <= dateRange.to 
@@ -51,7 +53,7 @@ export default function InventoryPage() {
     {
       accessorKey: "date",
       header: "Date",
-      cell: ({ row }) => new Date(row.original.date).toLocaleDateString(),
+      cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.date} formatString="PP" />,
     },
     { accessorKey: "productName", header: "Product Name" },
     { 
@@ -78,10 +80,10 @@ export default function InventoryPage() {
   ];
   
   const clearAllFilters = () => {
-    setFilterProduct('');
-    setFilterType('');
-    setFilterWarehouse('');
-    setFilterUser('');
+    setFilterProduct(ALL_FILTER_VALUE);
+    setFilterType(ALL_FILTER_VALUE);
+    setFilterWarehouse(ALL_FILTER_VALUE);
+    setFilterUser(ALL_FILTER_VALUE);
     setDateRange({ from: addDays(new Date(), -30), to: new Date() });
   };
 
