@@ -1,5 +1,5 @@
 
-import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole, MaterialRequest, MaterialRequestStatus } from './types';
+import type { Product, InventoryTransaction, NavItem, Category, Warehouse, User, UserRole, MaterialRequest, MaterialRequestStatus, BillOfMaterial, NotificationSetting } from './types';
 import { Home, Package, ListOrdered, Settings, Boxes, BarChart3, FileText, UploadCloud, Users, ClipboardList } from 'lucide-react';
 
 export const APP_NAME = 'Warehouse Edge';
@@ -10,10 +10,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/products', label: 'Products', icon: Package },
   { href: '/inventory', label: 'Inventory Ledger', icon: ListOrdered },
   { href: '/material-requests', label: 'Material Requests', icon: ClipboardList },
-  // { href: '/reports', label: 'Reports', icon: BarChart3 },
-  // { href: '/import', label: 'Import/Export', icon: UploadCloud },
-  // { href: '/users', label: 'User Management', icon: Users },
-  // { href: '/categories', label: 'Categories', icon: Boxes },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -31,6 +27,8 @@ export const MOCK_CATEGORIES: Category[] = [
   { id: 'cat3', name: 'Finished Goods', description: 'Products ready for sale.' },
   { id: 'cat4', name: 'Office Supplies', description: 'Items for office use.' },
   { id: 'cat5', name: 'Perishables', description: 'Goods with limited shelf life.' },
+  { id: 'cat6', name: 'Hardware Components', description: 'Small hardware parts like screws, bolts.' },
+  { id: 'cat7', name: 'Plastic Components', description: 'Molded plastic parts.'},
 ];
 
 export const MOCK_PRODUCTS: Product[] = [
@@ -88,8 +86,8 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'prod5',
-    name: 'Epsilon Finished Widget',
-    sku: 'EFW-001',
+    name: 'Standard Assembled Widget', // Was Epsilon Finished Widget
+    sku: 'SAW-001', // Was EFW-001
     category: 'Finished Goods',
     quantity: 500,
     reorderLevel: 100,
@@ -112,6 +110,45 @@ export const MOCK_PRODUCTS: Product[] = [
     imageUrl: 'https://placehold.co/100x100.png',
     description: 'Fresh organic apples, requires temperature control.',
   },
+  {
+    id: 'prod7',
+    name: 'M3 Screw Pack (100 units)',
+    sku: 'HW-SCR-M3-100',
+    category: 'Hardware Components', // Raw Material for BOM
+    quantity: 1000,
+    reorderLevel: 200,
+    warehouseId: 'wh3',
+    status: 'Available',
+    lastUpdated: new Date().toISOString(),
+    imageUrl: 'https://placehold.co/100x100.png',
+    description: 'Pack of 100 M3 screws.',
+  },
+  {
+    id: 'prod8',
+    name: 'Standard Plastic Casing',
+    sku: 'PL-CAS-STD-01',
+    category: 'Plastic Components', // Raw Material for BOM
+    quantity: 300,
+    reorderLevel: 50,
+    warehouseId: 'wh1',
+    status: 'Available',
+    lastUpdated: new Date().toISOString(),
+    imageUrl: 'https://placehold.co/100x100.png',
+    description: 'Standard plastic casing for small devices.',
+  },
+  {
+    id: 'prod9',
+    name: 'Advanced Gadget X',
+    sku: 'FG-ADVGX-001',
+    category: 'Finished Goods',
+    quantity: 75,
+    reorderLevel: 20,
+    warehouseId: 'wh4',
+    status: 'Available',
+    lastUpdated: new Date().toISOString(),
+    imageUrl: 'https://placehold.co/100x100.png',
+    description: 'Deluxe assembled gadget with multiple components.',
+  }
 ];
 
 export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
@@ -165,8 +202,8 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
   },
   {
     id: 'txn5',
-    productId: 'prod5',
-    productName: 'Epsilon Finished Widget',
+    productId: 'prod5', // Standard Assembled Widget
+    productName: 'Standard Assembled Widget',
     type: 'Inflow',
     quantityChange: 200,
     date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
@@ -282,4 +319,33 @@ export const MOCK_MATERIAL_REQUESTS: MaterialRequest[] = [
     approverNotes: 'Stock level too low for this quantity. Please request a smaller amount or wait for restock.',
     actionDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
+];
+
+
+export const MOCK_BOM_CONFIGURATIONS: BillOfMaterial[] = [
+  {
+    productId: 'prod5', // Standard Assembled Widget
+    productName: 'Standard Assembled Widget',
+    items: [
+      { rawMaterialId: 'prod7', rawMaterialName: 'M3 Screw Pack (100 units)', quantityNeeded: 5 }, // Needs 5 screws
+      { rawMaterialId: 'prod8', rawMaterialName: 'Standard Plastic Casing', quantityNeeded: 1 }, // Needs 1 casing
+      { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 1 } // Needs 1 processor
+    ]
+  },
+  {
+    productId: 'prod9', // Advanced Gadget X
+    productName: 'Advanced Gadget X',
+    items: [
+      { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 2 },
+      { rawMaterialId: 'prod2', rawMaterialName: 'Beta-Series RAM Module (16GB)', quantityNeeded: 1 },
+      { rawMaterialId: 'prod7', rawMaterialName: 'M3 Screw Pack (100 units)', quantityNeeded: 10 },
+      { rawMaterialId: 'prod8', rawMaterialName: 'Standard Plastic Casing', quantityNeeded: 1 }
+    ]
+  }
+];
+
+export const MOCK_NOTIFICATION_SETTINGS: NotificationSetting[] = [
+    { id: 'notif1', productId: 'prod1', productName: 'Alpha-Core Processor', threshold: 55, recipient: 'manager@example.com', channel: 'email', isEnabled: true },
+    { id: 'notif2', productId: 'prod2', productName: 'Beta-Series RAM Module (16GB)', threshold: 30, recipient: 'admin@example.com', channel: 'in-app', isEnabled: true },
+    { id: 'notif3', productId: 'prod7', productName: 'M3 Screw Pack (100 units)', threshold: 250, recipient: 'supervisor_hw@example.com', channel: 'email', isEnabled: false },
 ];

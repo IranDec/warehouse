@@ -1,8 +1,9 @@
+
 // src/app/settings/page.tsx
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2 } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import type { User, UserRole } from "@/lib/types";
-import { USER_ROLES } from "@/lib/constants";
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS } from "@/lib/constants"; // Added MOCK_BOM_CONFIGURATIONS
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -47,15 +48,14 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole }: UserRoleEditorP
     setIsDialogOpen(false);
   };
 
-  // Admin can change any role. WarehouseManager can change DepartmentEmployee roles.
   const canEditThisUserRole = 
     currentUserRole === 'Admin' || 
     (currentUserRole === 'WarehouseManager' && user.role === 'DepartmentEmployee');
 
-  if (!canEditThisUserRole && user.role !== currentUserRole) { // If current user cannot edit this user AND it's not their own profile (no self-edit for roles here)
-     return <span className="text-sm text-muted-foreground">{user.role}</span>; // Just display role
+  if (!canEditThisUserRole && user.role !== currentUserRole) { 
+     return <span className="text-sm text-muted-foreground">{user.role}</span>; 
   }
-   if (user.role === 'Admin' && currentUserRole !== 'Admin') { // Non-Admins cannot change Admin roles
+   if (user.role === 'Admin' && currentUserRole !== 'Admin') { 
     return <span className="text-sm text-muted-foreground">{user.role} (Cannot change Admin)</span>;
   }
 
@@ -100,7 +100,7 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole }: UserRoleEditorP
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { currentUser, users: mockUsers, updateUserRole } = useAuth(); // users renamed to mockUsers to avoid conflict
+  const { currentUser, users: mockUsers, updateUserRole } = useAuth(); 
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -119,15 +119,15 @@ export default function SettingsPage() {
       <PageHeader
         title="System Settings"
         icon={SettingsIcon}
-        description="Configure application preferences, user roles, and integrations."
+        description="Configure application preferences, user roles, integrations, and notifications."
       />
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-1">
           <TabsTrigger value="general" className="text-xs sm:text-sm"><Palette className="mr-1 h-4 w-4 hidden sm:inline-flex" /> General</TabsTrigger>
           <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> User Management</TabsTrigger>
+          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations & BOM</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm"><Bell className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Notifications</TabsTrigger>
-          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations</TabsTrigger>
           <TabsTrigger value="language" className="text-xs sm:text-sm"><Globe className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Language</TabsTrigger>
         </TabsList>
 
@@ -150,7 +150,7 @@ export default function SettingsPage() {
                 />
                 <Label htmlFor="dark-mode">Enable Dark Mode</Label>
               </div>
-              <Button>Save Changes</Button>
+              <Button onClick={() => useToast().toast({title: "Simulated Save", description: "General settings save action clicked."})}>Save Changes</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -187,35 +187,85 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        <TabsContent value="integrations">
+          <Card>
+            <CardHeader>
+              <CardTitle>CMS Integrations & Bill of Materials (BOM)</CardTitle>
+              <CardDescription>Connect with e-commerce platforms and manage product compositions.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="text-center text-muted-foreground py-6">
+                <Database className="mx-auto h-10 w-10 mb-3" />
+                <p className="text-sm">This section would allow connecting to CMS platforms (e.g., WooCommerce, Shopify) to sync product data and sales orders.</p>
+                <p className="text-sm mt-1">Upon each sale in the CMS, the WMS would automatically deduct associated raw materials based on the defined Bill of Materials.</p>
+                <div className="mt-4 flex justify-center gap-4">
+                  <Image src="https://placehold.co/100x40.png?text=WooCommerce" alt="WooCommerce" width={100} height={40} data-ai-hint="logo brand" />
+                  <Image src="https://placehold.co/100x40.png?text=Shopify" alt="Shopify" width={100} height={40} data-ai-hint="logo brand" />
+                </div>
+                <Button variant="outline" className="mt-4" onClick={() => useToast().toast({title: "Simulated Action", description: "Add Integration functionality."})}>Add CMS Integration</Button>
+              </div>
+              <div className="border-t pt-6">
+                <h3 className="text-md font-semibold mb-2 flex items-center"><FileJson className="mr-2 h-5 w-5 text-primary"/> Bill of Materials (BOM) Management</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Admins would define the raw materials and quantities needed for each finished product here. This is crucial for automatic deduction from inventory upon CMS sales.
+                </p>
+                {MOCK_BOM_CONFIGURATIONS.length > 0 ? (
+                  <div className="space-y-2 text-xs border rounded-md p-3 bg-muted/20 max-h-60 overflow-y-auto">
+                    <p className="font-medium text-muted-foreground">Example BOM Configurations (Read-only):</p>
+                    {MOCK_BOM_CONFIGURATIONS.map(bom => (
+                      <div key={bom.productId} className="p-2 border-b last:border-b-0">
+                        <span className="font-semibold text-foreground">{bom.productName || bom.productId}:</span>
+                        <ul className="list-disc list-inside ml-4">
+                          {bom.items.map(item => (
+                            <li key={item.rawMaterialId}>
+                              {item.quantityNeeded} x {item.rawMaterialName || item.rawMaterialId}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No mock BOMs configured yet.</p>
+                )}
+                 <Button variant="outline" size="sm" className="mt-3" onClick={() => useToast().toast({title: "Simulated Action", description: "Manage BOMs functionality."})}>Manage BOMs</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="notifications">
           <Card>
             <CardHeader>
               <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>Configure email and SMS alerts. (Feature Placeholder)</CardDescription>
+              <CardDescription>Configure email, SMS, or in-app alerts for important events.</CardDescription>
             </CardHeader>
-            <CardContent className="text-center text-muted-foreground py-10">
-              <Bell className="mx-auto h-12 w-12 mb-4" />
-              <p>Configure low stock alerts and other notifications.</p>
-              <Button variant="outline" className="mt-4">Configure Alerts</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="integrations">
-          <Card>
-            <CardHeader>
-              <CardTitle>CMS Integrations</CardTitle>
-              <CardDescription>Connect with WooCommerce, PrestaShop, etc. (Feature Placeholder)</CardDescription>
-            </CardHeader>
-            <CardContent className="text-center text-muted-foreground py-10">
-              <Database className="mx-auto h-12 w-12 mb-4" />
-              <p>Manage integrations with your e-commerce platforms.</p>
-              <div className="mt-4 flex justify-center gap-4">
-                <Image src="https://placehold.co/100x40.png?text=WooCommerce" alt="WooCommerce" width={100} height={40} data-ai-hint="logo brand" />
-                <Image src="https://placehold.co/100x40.png?text=PrestaShop" alt="PrestaShop" width={100} height={40} data-ai-hint="logo brand" />
+            <CardContent className="space-y-6">
+               <div className="text-center text-muted-foreground py-6">
+                <Bell className="mx-auto h-10 w-10 mb-3" />
+                <p className="text-sm">Set up alerts for events like low stock levels reaching a predefined minimum threshold.</p>
+                <p className="text-sm mt-1">Notifications can be customized per product or category and sent to relevant managers or supervisors.</p>
               </div>
-              <Button variant="outline" className="mt-4">Add Integration</Button>
+               <div className="border-t pt-6">
+                <h3 className="text-md font-semibold mb-2 flex items-center"><MessageSquareWarning className="mr-2 h-5 w-5 text-primary"/>Low Stock Alert Configuration (Examples)</h3>
+                 {MOCK_NOTIFICATION_SETTINGS.filter(s => s.channel !== 'in-app').length > 0 ? ( // Example: only show email/sms types here
+                  <div className="space-y-2 text-xs border rounded-md p-3 bg-muted/20 max-h-60 overflow-y-auto">
+                    {MOCK_NOTIFICATION_SETTINGS.filter(s => s.channel !== 'in-app').map(setting => (
+                      <div key={setting.id} className="p-2 border-b last:border-b-0">
+                        <p><span className="font-semibold text-foreground">Product:</span> {setting.productName || setting.productId}</p>
+                        <p><span className="font-semibold text-foreground">Threshold:</span> {setting.threshold}</p>
+                        <p><span className="font-semibold text-foreground">Recipient:</span> {setting.recipient}</p>
+                        <p><span className="font-semibold text-foreground">Channel:</span> {setting.channel}</p>
+                        <p><span className="font-semibold text-foreground">Status:</span> {setting.isEnabled ? "Enabled" : "Disabled"}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No mock Email/SMS notification settings configured yet.</p>
+                )}
+                <Button variant="outline" className="mt-4" onClick={() => useToast().toast({title: "Simulated Action", description: "Configure Alerts functionality."})}>Configure Alerts</Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -240,7 +290,7 @@ export default function SettingsPage() {
                 </Select>
               </div>
                <p className="text-sm text-muted-foreground">Multi-language support (English & Persian) is planned.</p>
-              <Button>Save Language</Button>
+              <Button onClick={() => useToast().toast({title: "Simulated Save", description: "Language settings save action clicked."})}>Save Language</Button>
             </CardContent>
           </Card>
         </TabsContent>

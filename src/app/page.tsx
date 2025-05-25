@@ -1,15 +1,19 @@
+
 // src/app/page.tsx (Dashboard)
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, Package, AlertTriangle, CheckCircle, Activity, Users, TrendingUp, TrendingDown, FileText, ListOrdered, Settings } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { DollarSign, Package, AlertTriangle, CheckCircle, Activity, Users, TrendingUp, TrendingDown, FileText, ListOrdered, Settings, ShoppingCart, Component } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS } from "@/lib/constants";
-import { Product } from "@/lib/types";
-import React, { useEffect, useState } from 'react';
+import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS } from "@/lib/constants";
+import type { Product, BillOfMaterial } from "@/lib/types";
+import React, { useEffect, useState, useMemo } from 'react';
+import { useToast } from "@/hooks/use-toast";
 
 
 const StatCard = ({ title, value, icon, description, trend, isLoading }: { title: string, value: string | number, icon: React.ElementType, description?: string, trend?: 'up' | 'down' | 'neutral', isLoading?: boolean }) => {
@@ -53,6 +57,7 @@ const StatCard = ({ title, value, icon, description, trend, isLoading }: { title
 
 
 export default function DashboardPage() {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -60,6 +65,11 @@ export default function DashboardPage() {
     outOfStockItems: 0,
     totalValue: "$0.00"
   });
+  const [selectedFinishedGood, setSelectedFinishedGood] = useState<string>("");
+
+  const finishedGoods = useMemo(() => {
+    return MOCK_PRODUCTS.filter(p => p.category === 'Finished Goods');
+  }, []);
 
   useEffect(() => {
     // Simulate data fetching
@@ -81,6 +91,47 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  const handleSimulateSale = () => {
+    if (!selectedFinishedGood) {
+      toast({
+        title: "No Product Selected",
+        description: "Please select a finished good to simulate a sale.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const product = MOCK_PRODUCTS.find(p => p.id === selectedFinishedGood);
+    if (!product) return;
+
+    const bom = MOCK_BOM_CONFIGURATIONS.find(b => b.productId === selectedFinishedGood);
+
+    if (bom && bom.items.length > 0) {
+      let deductionMessage = `Simulated sale of ${product.name}. The following raw materials would be deducted:\n`;
+      bom.items.forEach(item => {
+        const rawMaterial = MOCK_PRODUCTS.find(p => p.id === item.rawMaterialId);
+        deductionMessage += `- ${item.quantityNeeded} x ${rawMaterial ? rawMaterial.name : item.rawMaterialId}\n`;
+      });
+      console.log("BOM Deduction Simulation:", deductionMessage);
+      toast({
+        title: "CMS Sale Simulated",
+        description: (
+            <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+              <code className="text-white">{deductionMessage}</code>
+            </pre>
+          ),
+        duration: 9000, // Longer duration for preformatted text
+      });
+    } else {
+      toast({
+        title: "No BOM",
+        description: `No Bill of Materials defined for ${product.name}. Raw materials would not be automatically deducted.`,
+        variant: "default",
+      });
+    }
+  };
+
+
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
       <PageHeader 
@@ -95,8 +146,8 @@ export default function DashboardPage() {
         <StatCard title="Estimated Inventory Value" value={stats.totalValue} icon={DollarSign} description="Based on current stock" isLoading={loading} trend="up" />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="shadow-sm">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="shadow-sm lg:col-span-1">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
             <CardDescription>Perform common tasks directly from here.</CardDescription>
@@ -117,7 +168,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm lg:col-span-1">
           <CardHeader>
             <CardTitle>System Status</CardTitle>
              <CardDescription>Overview of system health and integrations.</CardDescription>
@@ -126,7 +177,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm">Database Connection</span>
               <div className="flex items-center gap-2 text-sm text-green-600">
-                <CheckCircle className="h-4 w-4" /> Connected
+                <CheckCircle className="h-4 w-4" /> Connected (Simulated)
               </div>
             </div>
             <div className="flex items-center justify-between">
@@ -138,14 +189,38 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm">Notification Service</span>
                <div className="flex items-center gap-2 text-sm text-green-600">
-                <CheckCircle className="h-4 w-4" /> Active
+                <CheckCircle className="h-4 w-4" /> Active (Simulated)
               </div>
             </div>
           </CardContent>
         </Card>
+
+        <Card className="shadow-sm lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center"><Component className="mr-2 h-5 w-5 text-primary" /> Simulate CMS Operations</CardTitle>
+            <CardDescription>Test Bill of Materials (BOM) based deduction.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="finished-good-select">Select Finished Good</Label>
+              <Select value={selectedFinishedGood} onValueChange={setSelectedFinishedGood}>
+                <SelectTrigger id="finished-good-select">
+                  <SelectValue placeholder="Select a product..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {finishedGoods.map(fg => (
+                    <SelectItem key={fg.id} value={fg.id}>{fg.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleSimulateSale} className="w-full">
+              <ShoppingCart className="mr-2 h-4 w-4" /> Simulate Sale & BOM Deduction
+            </Button>
+          </CardContent>
+        </Card>
       </div>
       
-      {/* Placeholder for a chart or recent activity feed */}
       <Card className="shadow-sm" data-ai-hint="office workspace">
         <CardHeader>
           <CardTitle>Recent Activity (Placeholder)</CardTitle>

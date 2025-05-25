@@ -54,12 +54,14 @@ export interface NavItem {
 }
 
 export interface BillOfMaterialItem {
-  rawMaterialId: string;
+  rawMaterialId: string; // ID of the raw material product
+  rawMaterialName?: string; // Optional: Name for easier display
   quantityNeeded: number;
 }
 
 export interface BillOfMaterial {
   productId: string; // Finished product ID
+  productName?: string; // Optional: Name for easier display
   items: BillOfMaterialItem[];
 }
 
@@ -98,4 +100,15 @@ export interface MaterialRequest {
   approverName?: string;
   approverNotes?: string; // Notes from approver (e.g., reason for rejection)
   actionDate?: string; // ISO date string of approval/rejection
+}
+
+// Notification System Types (Placeholder for now)
+export interface NotificationSetting {
+  id: string;
+  productId: string;
+  productName?: string;
+  threshold: number;
+  recipient: string; // e.g., email address or user ID
+  channel: 'email' | 'sms' | 'in-app'; // Example channels
+  isEnabled: boolean;
 }
