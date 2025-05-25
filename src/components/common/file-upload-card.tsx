@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { UploadCloud, FileText, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from "@/lib/utils"; // Added missing import
 
 interface FileUploadCardProps {
   title: string;
