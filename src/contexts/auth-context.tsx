@@ -2,9 +2,10 @@
 // src/contexts/auth-context.tsx
 "use client";
 
-import type { User, UserRole, Category, Warehouse, NotificationSetting } from '@/lib/types';
-import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES, MOCK_NOTIFICATION_SETTINGS } from '@/lib/constants';
+import type { User, UserRole, Category, Warehouse, NotificationSetting, MaterialRequest, RequestedItem } from '@/lib/types';
+import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES, MOCK_NOTIFICATION_SETTINGS, MOCK_MATERIAL_REQUESTS } from '@/lib/constants';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -21,15 +22,20 @@ interface AuthContextType {
   addNotificationSetting: (settingData: Omit<NotificationSetting, 'id'>) => void;
   updateNotificationSetting: (settingData: NotificationSetting) => void;
   deleteNotificationSetting: (settingId: string) => void;
+  materialRequests: MaterialRequest[];
+  addMaterialRequest: (requestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => void;
+  updateMaterialRequest: (updatedRequest: MaterialRequest) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const { toast } = useToast(); // Use toast from here
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
   const [warehouses, setWarehouses] = useState<Warehouse[]>(MOCK_WAREHOUSES);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSetting[]>(MOCK_NOTIFICATION_SETTINGS);
+  const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS);
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     return users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null;
@@ -112,6 +118,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setNotificationSettings(prevSettings => prevSettings.filter(s => s.id !== settingId));
   };
 
+  const addMaterialRequest = (requestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
+    if (!currentUser) {
+      toast({ title: "Error", description: "No current user found to submit request.", variant: "destructive" });
+      return;
+    }
+    const fullNewRequest: MaterialRequest = {
+      id: `mr${Date.now()}`,
+      submissionDate: new Date().toISOString(),
+      status: 'Pending',
+      requesterId: currentUser.id,
+      requesterName: currentUser.name,
+      departmentCategory: currentUser.categoryAccess || 'N/A',
+      ...requestData,
+    };
+    setMaterialRequests(prev => [fullNewRequest, ...prev]);
+    toast({ title: "Material Request Submitted", description: "Your request has been submitted for approval." });
+  };
+
+  const updateMaterialRequest = (updatedRequest: MaterialRequest) => {
+    setMaterialRequests(prev => prev.map(req => (req.id === updatedRequest.id ? updatedRequest : req)));
+     toast({ title: "Material Request Updated", description: `Request ${updatedRequest.id} has been updated.`});
+  };
+
+
   return (
     <AuthContext.Provider value={{ 
       currentUser, 
@@ -128,6 +158,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       addNotificationSetting,
       updateNotificationSetting,
       deleteNotificationSetting,
+      materialRequests,
+      addMaterialRequest,
+      updateMaterialRequest,
     }}>
       {children}
     </AuthContext.Provider>
@@ -141,3 +174,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

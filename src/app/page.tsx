@@ -13,8 +13,8 @@ import { Label } from "@/components/ui/label";
 import { 
   Package, AlertTriangle, Activity, TrendingUp, TrendingDown, Settings, ShoppingCart, Component,
   ClipboardList, BarChart3, ArrowRight, PackageSearch, Clock, CheckCircle2, XCircle, Hourglass, ListOrdered
-} from "lucide-react"; // Added ListOrdered
-import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS, MOCK_MATERIAL_REQUESTS } from "@/lib/constants";
+} from "lucide-react";
+import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS } from "@/lib/constants"; // MOCK_MATERIAL_REQUESTS removed
 import type { Product, BillOfMaterial, InventoryTransaction, MaterialRequest } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
@@ -86,7 +86,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, descripti
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const { currentUser, warehouses } = useAuth(); // Added warehouses from useAuth
+  const { currentUser, warehouses, materialRequests } = useAuth(); // Added materialRequests from useAuth
   const [loading, setLoading] = useState(true);
   
   const [stats, setStats] = useState({
@@ -109,8 +109,8 @@ export default function DashboardPage() {
     const timer = setTimeout(() => {
       const products = MOCK_PRODUCTS;
       const inventoryTransactions = MOCK_INVENTORY_TRANSACTIONS;
-      const materialRequests = MOCK_MATERIAL_REQUESTS;
-
+      // Material requests are now from AuthContext
+      
       const lowStockProducts = products.filter(p => p.quantity <= p.reorderLevel || p.status === 'Low Stock' || p.status === 'Out of Stock');
       const pendingRequests = materialRequests.filter(r => r.status === 'Pending');
       
@@ -135,7 +135,7 @@ export default function DashboardPage() {
       setLoading(false);
     }, 500); 
     return () => clearTimeout(timer);
-  }, []);
+  }, [materialRequests]); // Added materialRequests dependency
 
   const handleSimulateSale = () => {
     if (!selectedFinishedGood) {
@@ -196,7 +196,7 @@ export default function DashboardPage() {
             warehouseId: rawMaterial.warehouseId,
             warehouseName: warehouses.find(wh => wh.id === rawMaterial.warehouseId)?.name || 'N/A',
           };
-          MOCK_INVENTORY_TRANSACTIONS.unshift(transaction); // Add to the beginning for recent display
+          MOCK_INVENTORY_TRANSACTIONS.unshift(transaction); 
           deductionMessages.push(`- ${item.quantityNeeded} x ${rawMaterial.name} from ${transaction.warehouseName}. Stock: ${originalQty} -> ${rawMaterial.quantity}`);
         }
       });
@@ -233,12 +233,12 @@ export default function DashboardPage() {
         duration: 10000,
       });
     }
-     // Force re-fetch/re-render of stats (simple way for mock data)
+     // Force re-fetch/re-render of stats
     setLoading(true);
-    setTimeout(() => { // Simulate data re-fetch delay
+    setTimeout(() => { 
         const products = MOCK_PRODUCTS;
         const inventoryTransactions = MOCK_INVENTORY_TRANSACTIONS;
-        const materialRequests = MOCK_MATERIAL_REQUESTS;
+        // materialRequests are from context and will update automatically
 
         const lowStockProducts = products.filter(p => p.quantity <= p.reorderLevel || p.status === 'Low Stock' || p.status === 'Out of Stock');
         const pendingRequests = materialRequests.filter(r => r.status === 'Pending');
@@ -257,6 +257,7 @@ export default function DashboardPage() {
             recentTransactionsCount: recentTrans.length,
         });
         setRecentInventory(inventoryTransactions.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()).slice(0, 5));
+        setRecentRequests(materialRequests.sort((a,b) => parseISO(b.submissionDate).getTime() - parseISO(a.submissionDate).getTime()).slice(0,5));
         setItemsToReorder(lowStockProducts.sort((a,b) => (a.quantity - a.reorderLevel) - (b.quantity - b.reorderLevel)).slice(0,3));
         setLoading(false);
     }, 200);

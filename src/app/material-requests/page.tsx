@@ -14,7 +14,7 @@ import {
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAuth } from '@/contexts/auth-context';
 import type { MaterialRequest, MaterialRequestStatus, RequestedItem } from '@/lib/types';
-import { MOCK_MATERIAL_REQUESTS, MATERIAL_REQUEST_STATUS_OPTIONS, ALL_FILTER_VALUE } from '@/lib/constants';
+import { MATERIAL_REQUEST_STATUS_OPTIONS, ALL_FILTER_VALUE } from '@/lib/constants';
 import { NewMaterialRequestModal } from '@/components/material-requests/new-request-modal';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -39,7 +39,7 @@ import {
 import { DateRangePicker } from '@/components/common/date-range-picker';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import type { DateRange } from 'react-day-picker';
-import { addDays, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
+import { startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { cn } from "@/lib/utils";
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 
@@ -65,9 +65,9 @@ const StatDisplayCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, co
 
 
 export default function MaterialRequestsPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, materialRequests, addMaterialRequest, updateMaterialRequest: contextUpdateMaterialRequest } = useAuth();
   const { toast } = useToast();
-  const [requests, setRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS);
+  // const [requests, setRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS); // Now from context
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaterialRequest | null>(null);
   
@@ -92,39 +92,27 @@ export default function MaterialRequestsPage() {
   }, [canManageRequests, canCreateRequests]);
 
   const uniqueRequesters = useMemo(() => {
-    const requesters = new Set(requests.map(r => r.requesterName));
+    const requesters = new Set(materialRequests.map(r => r.requesterName));
     return Array.from(requesters).sort();
-  }, [requests]); 
+  }, [materialRequests]); 
 
   const uniqueDepartments = useMemo(() => {
-    const departments = new Set(requests.map(r => r.departmentCategory));
+    const departments = new Set(materialRequests.map(r => r.departmentCategory));
     return Array.from(departments).sort();
-  }, [requests]); 
+  }, [materialRequests]); 
 
-  const handleAddNewRequest = (newRequestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
-    if (!currentUser) return;
-    const fullNewRequest: MaterialRequest = {
-      id: `mr${Date.now()}`, 
-      submissionDate: new Date().toISOString(),
-      status: 'Pending',
-      requesterId: currentUser.id,
-      requesterName: currentUser.name,
-      departmentCategory: currentUser.categoryAccess || 'N/A',
-      ...newRequestData,
-    };
-    setRequests(prev => [fullNewRequest, ...prev]);
-    toast({ title: "Material Request Submitted", description: "Your request has been submitted for approval." });
+  const handleAddNewRequestFromPage = (newRequestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
+    addMaterialRequest(newRequestData); // Uses the context function
   };
 
   const handleUpdateRequest = (updatedRequest: MaterialRequest) => {
-    setRequests(prev => prev.map(req => req.id === updatedRequest.id ? updatedRequest : req));
-    toast({ title: "Material Request Updated", description: `Request ${updatedRequest.id} has been updated.`});
+    contextUpdateMaterialRequest(updatedRequest); // Uses the context function
   }
 
   const handleAction = (requestId: string, newStatus: MaterialRequestStatus, notes?: string) => {
     if (!currentUser) return;
 
-    const requestToUpdate = requests.find(r => r.id === requestId);
+    const requestToUpdate = materialRequests.find(r => r.id === requestId);
     if (!requestToUpdate) {
         toast({ title: "Error", description: "Request not found.", variant: "destructive"});
         return;
@@ -138,20 +126,16 @@ export default function MaterialRequestsPage() {
         return;
     }
 
-    setRequests(prevRequests =>
-      prevRequests.map(req =>
-        req.id === requestId
-          ? {
-              ...req,
-              status: newStatus,
-              approverId: isManagerAction ? currentUser.id : req.approverId,
-              approverName: isManagerAction ? currentUser.name : req.approverName,
-              actionDate: new Date().toISOString(),
-              approverNotes: notes || req.approverNotes,
-            }
-          : req
-      )
-    );
+    const updatedReq = {
+        ...requestToUpdate,
+        status: newStatus,
+        approverId: isManagerAction ? currentUser.id : requestToUpdate.approverId,
+        approverName: isManagerAction ? currentUser.name : requestToUpdate.approverName,
+        actionDate: new Date().toISOString(),
+        approverNotes: notes || requestToUpdate.approverNotes,
+    };
+    contextUpdateMaterialRequest(updatedReq);
+
     toast({ title: `Request ${newStatus}`, description: `Request ${requestId} has been ${newStatus.toLowerCase()}.` });
     if (showCancelConfirm?.id === requestId) {
       setShowCancelConfirm(null);
@@ -159,7 +143,7 @@ export default function MaterialRequestsPage() {
   };
 
   const filteredRequests = useMemo(() => {
-    return requests.filter(request => {
+    return materialRequests.filter(request => {
       const statusMatch = filterStatus === ALL_FILTER_VALUE ? true : request.status === filterStatus;
       const requesterMatch = filterRequester === ALL_FILTER_VALUE ? true : request.requesterName === filterRequester;
       const departmentMatch = filterDepartment === ALL_FILTER_VALUE ? true : request.departmentCategory === filterDepartment;
@@ -193,7 +177,7 @@ export default function MaterialRequestsPage() {
 
       return statusMatch && requesterMatch && departmentMatch && submissionDateMatch && userSpecificFilter;
     });
-  }, [requests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate, canManageRequests]);
+  }, [materialRequests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate, canManageRequests]);
   
   const summaryStats = useMemo(() => {
     const stats: Record<MaterialRequestStatus, number> = {
@@ -275,7 +259,7 @@ export default function MaterialRequestsPage() {
         header: "Approver/Action Info",
         cell: ({ row }) => {
             const { approverName, approverNotes, status, actionDate } = row.original;
-            if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate && !row.original.actionDate)) { // Check row.original.actionDate too
+            if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate && !row.original.actionDate)) { 
                  return <span className="text-xs text-muted-foreground">N/A</span>;
             }
             return (
@@ -426,13 +410,13 @@ export default function MaterialRequestsPage() {
             const updatedReq = {
               ...editingRequest,
               ...data,
-              items: data.items,
+              items: data.items, // Ensure items are correctly passed
               requestedDate: data.requestedDate,
               reasonForRequest: data.reasonForRequest,
             };
             handleUpdateRequest(updatedReq);
             setEditingRequest(null);
-          } : handleAddNewRequest}
+          } : handleAddNewRequestFromPage}
           currentUser={currentUser}
           existingRequest={editingRequest}
         />
