@@ -3,9 +3,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Warehouse, Settings, LogOut, UserCog, Users } from 'lucide-react';
+import { Warehouse, Settings, LogOut, UserCog } from 'lucide-react'; // Removed Users as it's not used directly here
 import { cn } from '@/lib/utils';
-import { APP_NAME, NAV_ITEMS, MOCK_USERS } from '@/lib/constants';
+import { APP_NAME, NAV_ITEMS } from '@/lib/constants';
 import type { NavItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,7 +32,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger,
+  SidebarTrigger, // Added SidebarTrigger
   useSidebar,
 } from '@/components/ui/sidebar';
 import React from 'react';
@@ -40,7 +40,7 @@ import { useAuth } from '@/contexts/auth-context';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isMobile, openMobile } = useSidebar(); 
+  const { isMobile, openMobile, state: sidebarState } = useSidebar(); // Added sidebarState
   const { currentUser, setCurrentUserById, users: availableUsers } = useAuth();
 
   const getPageTitle = () => {
@@ -141,14 +141,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <div className="flex flex-col h-screen">
           <header className="sticky top-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background/80 backdrop-blur-sm px-4">
-            <SidebarTrigger className="md:hidden -ml-2"/>
-            <h1 className="text-xl font-semibold">
+            <SidebarTrigger className="md:hidden -ml-2"/> {/* Mobile toggle */}
+            <SidebarTrigger className="hidden md:flex"/> {/* Desktop toggle, hidden if sidebar is icon only and expanded */}
+            <h1 className="text-xl font-semibold ml-2">
               {getPageTitle()}
             </h1>
           </header>
           <main className="flex-1 overflow-auto">
             {children}
           </main>
+          <footer className="p-4 text-center text-xs text-muted-foreground border-t bg-background">
+            این نسخه تست است. برای ساخت نسخه اصلی با شرکت <a href="https://adschicrm.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AdsChi.com</a> در ارتباط باشید.
+          </footer>
         </div>
       </SidebarInset>
     </div>
