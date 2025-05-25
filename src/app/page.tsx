@@ -4,7 +4,7 @@
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, Package, AlertTriangle, CheckCircle, Activity, Users, TrendingUp, TrendingDown, FileText } from "lucide-react";
+import { DollarSign, Package, AlertTriangle, CheckCircle, Activity, Users, TrendingUp, TrendingDown, FileText, ListOrdered, Settings } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS } from "@/lib/constants";

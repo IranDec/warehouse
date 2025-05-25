@@ -4,16 +4,10 @@ import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppShell } from '@/components/layout/app-shell';
+import { SidebarProvider } from '@/components/ui/sidebar';
 
-const geistSans = GeistSans({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = GeistMono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+// The GeistSans and GeistMono imports are objects, not functions to be called.
+// Their .variable property provides the class name to set the CSS variables.
 
 export const metadata: Metadata = {
   title: 'Warehouse Edge',
@@ -27,8 +21,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AppShell>{children}</AppShell>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
+        <SidebarProvider defaultOpen>
+          <AppShell>{children}</AppShell>
+        </SidebarProvider>
         <Toaster />
       </body>
     </html>
