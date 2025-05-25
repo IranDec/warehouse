@@ -3,7 +3,7 @@
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus, Tag } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus, Tag, Edit } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,12 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import type { User, UserRole, Warehouse, Category, NotificationSetting } from "@/lib/types";
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS, MOCK_WAREHOUSES } from "@/lib/constants";
-import { useToast } from "@/hooks/use-toast";
+import type { User, UserRole, Warehouse, Category, NotificationSetting } from '@/lib/types';
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS } from '@/lib/constants';
+import { useToast } from '@/hooks/use-toast';
 import { NewUserModal } from "@/components/settings/new-user-modal";
 import { NewCategoryModal } from "@/components/settings/new-category-modal";
+import { NewEditWarehouseModal } from "@/components/settings/new-edit-warehouse-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,11 +40,11 @@ interface UserRoleEditorProps {
   user: User;
   onRoleChange: (userId: string, newRole: UserRole, newCategoryAccess?: string) => void;
   currentUserRole: UserRole | undefined;
-  toast: ReturnType<typeof useToast>['toast'];
+  toastFn: ReturnType<typeof useToast>['toast'];
   categories: Category[];
 }
 
-function UserRoleEditor({ user, onRoleChange, currentUserRole, toast, categories }: UserRoleEditorProps) {
+function UserRoleEditor({ user, onRoleChange, currentUserRole, toastFn, categories }: UserRoleEditorProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(user.categoryAccess);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -56,15 +57,15 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast, categories
 
   const handleSaveRole = () => {
     if (currentUserRole !== 'Admin' && selectedRole === 'Admin' && user.role !== 'Admin') {
-      toast({ title: "Permission Denied", description: "Only Admins can assign the Admin role.", variant: "destructive" });
+      toastFn({ title: "Permission Denied", description: "Only Admins can assign the Admin role.", variant: "destructive" });
       return;
     }
     if (selectedRole === 'DepartmentEmployee' && !selectedCategory) {
-      toast({ title: "Category Required", description: "Department Employees must have a category assigned.", variant: "destructive" });
+      toastFn({ title: "Category Required", description: "Department Employees must have a category assigned.", variant: "destructive" });
       return;
     }
     onRoleChange(user.id, selectedRole, selectedRole === 'DepartmentEmployee' ? selectedCategory : undefined);
-    toast({ title: "Role Updated", description: `Role for ${user.name} changed to ${selectedRole}.` });
+    toastFn({ title: "Role Updated", description: `Role for ${user.name} changed to ${selectedRole}.` });
     setIsDialogOpen(false);
   };
 
@@ -171,10 +172,12 @@ const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; pe
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { currentUser, users: mockUsers, updateUserRole, categories, addCategory } = useAuth();
+  const { currentUser, users: mockUsers, updateUserRole, categories, addCategory, warehouses, addWarehouse, updateWarehouse } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false);
+  const [isNewEditWarehouseModalOpen, setIsNewEditWarehouseModalOpen] = useState(false);
+  const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -189,6 +192,11 @@ export default function SettingsPage() {
   const canManageWarehouses = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageNotifications = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
+
+  const handleOpenNewEditWarehouseModal = (warehouse?: Warehouse) => {
+    setEditingWarehouse(warehouse || null);
+    setIsNewEditWarehouseModalOpen(true);
+  };
 
 
   return (
@@ -286,7 +294,7 @@ export default function SettingsPage() {
                       )}
                     </div>
                     {canManageUsers ? (
-                      <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toast={toast} categories={categories} />
+                      <UserRoleEditor user={user} onRoleChange={updateUserRole} currentUserRole={currentUser?.role} toastFn={toast} categories={categories} />
                     ) : (
                       <span className="text-sm font-medium">{user.role}</span>
                     )}
@@ -354,17 +362,22 @@ export default function SettingsPage() {
 
         <TabsContent value="warehouses">
           <Card>
-            <CardHeader>
-              <CardTitle>Warehouse Management</CardTitle>
-              <CardDescription>
-                View and manage your warehouse locations. Products are assigned to warehouses via their `warehouseId`.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Warehouse Management</CardTitle>
+                <CardDescription>
+                  {canManageWarehouses
+                    ? "Manage warehouse locations. Products are assigned via their `warehouseId`. (Simulated: Changes are not persistent)."
+                    : "View warehouse locations. You do not have permission to manage them."}
+                </CardDescription>
+              </div>
+               {canManageWarehouses && (
+                <Button onClick={() => handleOpenNewEditWarehouseModal()}>
+                  <WarehouseIcon className="mr-2 h-4 w-4" /> Add New Warehouse
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Below is the list of currently defined warehouses (from mock data). In a full application, administrators
-                would be able to add, edit, and delete warehouses here.
-              </p>
               <div className="border rounded-md">
                 <Table>
                   <TableHeader>
@@ -372,28 +385,39 @@ export default function SettingsPage() {
                       <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Location</TableHead>
+                      {canManageWarehouses && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {MOCK_WAREHOUSES.map((warehouse) => (
+                    {warehouses.map((warehouse) => (
                       <TableRow key={warehouse.id}>
                         <TableCell className="font-mono text-xs">{warehouse.id}</TableCell>
                         <TableCell className="font-medium">{warehouse.name}</TableCell>
                         <TableCell>{warehouse.location || 'N/A'}</TableCell>
+                        {canManageWarehouses && (
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenNewEditWarehouseModal(warehouse)}>
+                              <Edit className="h-4 w-4" />
+                              <span className="sr-only">Edit Warehouse</span>
+                            </Button>
+                             {/* Delete button can be added here with confirmation */}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-              {canManageWarehouses ? (
-                <Button onClick={() => toast({ title: "Simulated Action", description: "This would open a form to add a new warehouse."})}>
-                  Add New Warehouse (Simulated)
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">You do not have permission to manage warehouses.</p>
+              {!canManageWarehouses && warehouses.length > 0 && (
+                 <p className="text-sm text-muted-foreground text-center pt-4">
+                  Contact an Administrator to manage warehouses.
+                </p>
+              )}
+              {warehouses.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No warehouses defined yet.</p>
               )}
                <p className="text-xs text-muted-foreground pt-4">
-                Products are assigned to warehouses using the 'warehouseId' field during CSV import, or through an 'Add/Edit Product' form (which would include a warehouse selection dropdown from the list above).
+                Products are assigned to warehouses using the 'warehouseId' field during CSV import, or through an 'Add/Edit Product' form (which includes a warehouse selection dropdown from the list above).
               </p>
             </CardContent>
           </Card>
@@ -557,7 +581,14 @@ export default function SettingsPage() {
       </Tabs>
       <NewUserModal isOpen={isNewUserModalOpen} onClose={() => setIsNewUserModalOpen(false)} />
       <NewCategoryModal isOpen={isNewCategoryModalOpen} onClose={() => setIsNewCategoryModalOpen(false)} />
+      <NewEditWarehouseModal 
+        isOpen={isNewEditWarehouseModalOpen} 
+        onClose={() => {
+          setIsNewEditWarehouseModalOpen(false);
+          setEditingWarehouse(null);
+        }}
+        existingWarehouse={editingWarehouse}
+      />
     </div>
   );
 }
-

@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { MOCK_PRODUCTS, PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
+import { MOCK_PRODUCTS, PRODUCT_STATUS_OPTIONS, ALL_FILTER_VALUE } from '@/lib/constants';
 import type { Product, ProductStatus } from '@/lib/types';
 import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Edit, PlusCircle } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
@@ -25,7 +25,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 
 export default function ProductsPage() {
-  const { currentUser, categories } = useAuth();
+  const { currentUser, categories, warehouses } = useAuth(); // Added warehouses
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
@@ -58,9 +58,9 @@ export default function ProductsPage() {
             if (!row.id || !row.name || !row.sku) {
               throw new Error(`Missing required fields (id, name, sku) in row: ${JSON.stringify(row)}`);
             }
-            const warehouseExists = MOCK_WAREHOUSES.some(wh => wh.id === String(row.warehouseId || ''));
+            const warehouseExists = warehouses.some(wh => wh.id === String(row.warehouseId || ''));
             if (!warehouseExists && row.warehouseId) {
-                toast({ title: "Import Warning", description: `Warehouse ID '${row.warehouseId}' for product '${row.name}' does not exist. Product will be assigned to default or no warehouse. Ensure 'warehouseId' matches an existing warehouse ID in constants.`, variant: "default" });
+                toast({ title: "Import Warning", description: `Warehouse ID '${row.warehouseId}' for product '${row.name}' does not exist. Product will be assigned to default or no warehouse. Ensure 'warehouseId' matches an existing warehouse ID.`, variant: "default" });
             }
             return {
               id: String(row.id),
@@ -69,7 +69,7 @@ export default function ProductsPage() {
               category: String(row.category || 'Uncategorized'),
               quantity: parseInt(row.quantity || '0', 10),
               reorderLevel: parseInt(row.reorderLevel || '0', 10),
-              warehouseId: warehouseExists ? String(row.warehouseId) : MOCK_WAREHOUSES[0]?.id || 'wh1',
+              warehouseId: warehouseExists ? String(row.warehouseId) : warehouses[0]?.id || 'wh1',
               status: (row.status as ProductStatus) || 'Available',
               lastUpdated: new Date().toISOString(),
               imageUrl: String(row.imageUrl || 'https://placehold.co/100x100.png'),
@@ -169,7 +169,7 @@ export default function ProductsPage() {
 
 
   const getWarehouseName = (warehouseId: string) => {
-    return MOCK_WAREHOUSES.find(wh => wh.id === warehouseId)?.name || 'N/A';
+    return warehouses.find(wh => wh.id === warehouseId)?.name || 'N/A';
   };
 
   const filteredProducts = useMemo(() => {
@@ -296,7 +296,7 @@ export default function ProductsPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" id="import">
           <FileUploadCard
             title="Import Products (CSV)"
-            description="Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description. Ensure 'warehouseId' matches an existing ID from MOCK_WAREHOUSES."
+            description={`Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description. Ensure 'warehouseId' matches an existing ID from the ${warehouses.length} available warehouses.`}
             onFileUpload={handleProductImport}
             acceptedFileTypes=".csv"
             icon={<UploadCloud className="h-8 w-8 text-primary" />}
@@ -313,7 +313,7 @@ export default function ProductsPage() {
           <div className="lg:col-span-1 p-6 bg-card rounded-lg shadow-lg border">
             <h3 className="text-lg font-semibold mb-2 text-foreground">Product Insights</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Currently managing <span className="font-bold text-primary">{products.length}</span> distinct products across <span className="font-bold text-primary">{MOCK_WAREHOUSES.length}</span> warehouses.
+              Currently managing <span className="font-bold text-primary">{products.length}</span> distinct products across <span className="font-bold text-primary">{warehouses.length}</span> warehouses.
               Monitor stock levels and statuses to ensure optimal inventory management.
             </p>
             <Image src="https://placehold.co/300x150.png" alt="Product insights placeholder" width={300} height={150} className="rounded-md w-full" data-ai-hint="warehouse shelves" />
@@ -375,7 +375,7 @@ export default function ProductsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_FILTER_VALUE}>All Warehouses</SelectItem>
-              {MOCK_WAREHOUSES.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
+              {warehouses.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="ghost" onClick={() => { setFilterName(''); if (!(currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess)) setFilterCategory(ALL_FILTER_VALUE); setFilterStatus(ALL_FILTER_VALUE); setFilterWarehouse(ALL_FILTER_VALUE);}} className="h-9">

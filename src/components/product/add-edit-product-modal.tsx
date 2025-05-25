@@ -20,10 +20,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Product, ProductStatus, Warehouse } from '@/lib/types'; // Removed Category import
-import { PRODUCT_STATUS_OPTIONS, MOCK_WAREHOUSES } from '@/lib/constants'; // Removed MOCK_CATEGORIES
+import type { Product, ProductStatus } from '@/lib/types'; 
+import { PRODUCT_STATUS_OPTIONS } from '@/lib/constants'; 
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useAuth } from '@/contexts/auth-context'; 
 
 const productFormSchema = z.object({
   id: z.string().optional(),
@@ -51,7 +51,7 @@ interface AddEditProductModalProps {
 
 export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct }: AddEditProductModalProps) {
   const { toast } = useToast();
-  const { categories } = useAuth(); // Get categories from AuthContext
+  const { categories, warehouses } = useAuth(); 
 
   const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
@@ -87,8 +87,8 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
         reset({ 
           name: '',
           sku: '',
-          category: categories[0]?.name || '', // Use categories from context
-          warehouseId: MOCK_WAREHOUSES[0]?.id || '',
+          category: categories[0]?.name || '', 
+          warehouseId: warehouses[0]?.id || '',
           quantity: 0,
           reorderLevel: 10,
           status: 'Available',
@@ -97,7 +97,7 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
         });
       }
     }
-  }, [isOpen, existingProduct, reset, categories]);
+  }, [isOpen, existingProduct, reset, categories, warehouses]);
 
   const handleFormSubmit = (data: ProductFormData) => {
     const productToSubmit: Product = {
@@ -152,7 +152,7 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map(cat => ( // Use categories from context
+                      {categories.map(cat => ( 
                         <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -173,7 +173,7 @@ export function AddEditProductModal({ isOpen, onClose, onSubmit, existingProduct
                       <SelectValue placeholder="Select warehouse" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MOCK_WAREHOUSES.map(wh => (
+                      {warehouses.map(wh => (
                         <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>
                       ))}
                     </SelectContent>

@@ -6,8 +6,8 @@ import React, { useState, useMemo } from 'react';
 import { PageHeader } from "@/components/common/page-header";
 import { DateRangePicker } from "@/components/common/date-range-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, MOCK_WAREHOUSES, MOCK_CATEGORIES, ALL_FILTER_VALUE } from '@/lib/constants';
-import type { InventoryTransaction, Product, Warehouse, Category } from '@/lib/types';
+import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE } from '@/lib/constants';
+import type { InventoryTransaction, Product, Category } from '@/lib/types'; // Removed Warehouse
 import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon } from "lucide-react";
 import type { DateRange } from 'react-day-picker';
 import { addDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
@@ -74,7 +74,7 @@ const CHART_COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--c
 
 export default function ReportsPage() {
   const { toast } = useToast();
-  const { categories: authCategories } = useAuth(); // Get categories from AuthContext
+  const { categories: authCategories, warehouses } = useAuth(); 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     return {
@@ -127,7 +127,7 @@ export default function ReportsPage() {
       returned: calculateStats(['Return']),
       inflow: calculateStats(['Inflow', 'Initial']),
       outflow: calculateStats(['Outflow']),
-      adjustment: calculateStats(['Adjustment']), // Assuming 'Adjustment' type exists
+      adjustment: calculateStats(['Adjustment']), 
     };
   }, [filteredTransactions]);
 
@@ -207,10 +207,10 @@ export default function ReportsPage() {
 
   const barChartData = useMemo(() => {
     return productBreakdown.map(item => ({
-      name: item.productName.length > 15 ? `${item.productName.substring(0,15)}...` : item.productName, // Truncate long names
+      name: item.productName.length > 15 ? `${item.productName.substring(0,15)}...` : item.productName, 
       Inflow: item.totalInflow,
       Outflow: item.totalOutflow,
-    })).slice(0, 10); // Limit to top 10 for better readability
+    })).slice(0, 10); 
   }, [productBreakdown]);
 
   const pieChartData = useMemo(() => {
@@ -221,7 +221,7 @@ export default function ReportsPage() {
       typeCounts[t.type] = (typeCounts[t.type] || 0) + Math.abs(t.quantityChange);
     });
     return Object.entries(typeCounts)
-      .filter(([, value]) => value > 0) // Only include types with actual transactions
+      .filter(([, value]) => value > 0) 
       .map(([name, value]) => ({ name, value }));
   }, [filteredTransactions]);
 
@@ -230,9 +230,9 @@ export default function ReportsPage() {
         p.quantity <= p.reorderLevel || 
         p.status === 'Low Stock' || 
         p.status === 'Out of Stock'
-    ).filter(p => { // Apply warehouse filter if active
+    ).filter(p => { 
         return filterWarehouse === ALL_FILTER_VALUE || p.warehouseId === filterWarehouse;
-    }).filter(p => { // Apply category filter if active
+    }).filter(p => { 
         return filterCategory === ALL_FILTER_VALUE || p.category === filterCategory;
     });
   }, [filterWarehouse, filterCategory]);
@@ -241,7 +241,7 @@ export default function ReportsPage() {
     { accessorKey: "name", header: "Product Name", cell: ({row}) => <div className="font-medium">{row.original.name}</div> },
     { accessorKey: "sku", header: "SKU" },
     { accessorKey: "category", header: "Category" },
-    { accessorKey: "warehouseId", header: "Warehouse", cell: ({row}) => MOCK_WAREHOUSES.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A' },
+    { accessorKey: "warehouseId", header: "Warehouse", cell: ({row}) => warehouses.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A' },
     { accessorKey: "quantity", header: "Current Qty" },
     { accessorKey: "reorderLevel", header: "Reorder Lvl" },
     { 
@@ -316,7 +316,7 @@ export default function ReportsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>All Warehouses</SelectItem>
-                {MOCK_WAREHOUSES.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
+                {warehouses.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filterCategory} onValueChange={(value) => {setFilterCategory(value); setFilterProduct(ALL_FILTER_VALUE);}}>
@@ -475,6 +475,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-
-    

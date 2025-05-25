@@ -19,7 +19,7 @@ export interface Product {
   id: string;
   name: string;
   sku: string;
-  category: string; // Category Name, ideally should be Category ID
+  category: string; 
   quantity: number;
   reorderLevel: number;
   warehouseId: string;

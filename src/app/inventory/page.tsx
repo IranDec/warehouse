@@ -8,7 +8,7 @@ import { DataTable } from "@/components/common/data-table";
 import { VarianceExplainerModal } from "@/components/inventory/variance-explainer-modal";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, MOCK_WAREHOUSES, ALL_FILTER_VALUE } from '@/lib/constants';
+import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE } from '@/lib/constants';
 import type { InventoryTransaction, InventoryTransactionType } from '@/lib/types';
 import { ListOrdered, Filter } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
@@ -16,10 +16,12 @@ import { DateRangePicker } from '@/components/common/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { addDays } from 'date-fns';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
+import { useAuth } from '@/contexts/auth-context'; // Added warehouses
 
 const TRANSACTION_TYPES: InventoryTransactionType[] = ['Inflow', 'Outflow', 'Return', 'Damage', 'Adjustment', 'Initial'];
 
 export default function InventoryPage() {
+  const { warehouses } = useAuth(); // Get warehouses from context
   const [transactions, setTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
   const [filterProduct, setFilterProduct] = useState<string>(ALL_FILTER_VALUE);
   const [filterType, setFilterType] = useState<string>(ALL_FILTER_VALUE);
@@ -37,10 +39,10 @@ export default function InventoryPage() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
-      const productMatch = filterProduct === ALL_FILTER_VALUE ? true : transaction.productId === filterProduct;
-      const typeMatch = filterType === ALL_FILTER_VALUE ? true : transaction.type === filterType;
-      const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE ? true : transaction.warehouseId === filterWarehouse;
-      const userMatch = filterUser === ALL_FILTER_VALUE ? true : transaction.user === filterUser;
+      const productMatch = filterProduct === ALL_FILTER_VALUE || filterProduct === "" ? true : transaction.productId === filterProduct;
+      const typeMatch = filterType === ALL_FILTER_VALUE || filterType === "" ? true : transaction.type === filterType;
+      const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || filterWarehouse === "" ? true : transaction.warehouseId === filterWarehouse;
+      const userMatch = filterUser === ALL_FILTER_VALUE || filterUser === "" ? true : transaction.user === filterUser;
       const date = new Date(transaction.date);
       const dateMatch = dateRange?.from && dateRange?.to 
         ? date >= dateRange.from && date <= dateRange.to 
@@ -59,7 +61,7 @@ export default function InventoryPage() {
     { 
       accessorKey: "warehouseName", 
       header: "Warehouse",
-      cell: ({ row }) => row.original.warehouseName || MOCK_WAREHOUSES.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A'
+      cell: ({ row }) => row.original.warehouseName || warehouses.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A'
     },
     { accessorKey: "type", header: "Type" },
     { 
@@ -132,7 +134,7 @@ export default function InventoryPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_FILTER_VALUE}>All Warehouses</SelectItem>
-              {MOCK_WAREHOUSES.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
+              {warehouses.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select
