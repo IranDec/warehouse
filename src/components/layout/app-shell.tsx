@@ -161,10 +161,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {children}
           </main>
           <footer className="p-4 text-center text-xs text-muted-foreground border-t bg-background">
-            این نسخه تست است. برای ساخت نسخه اصلی با شرکت <a href="https://adschicrm.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AdsChi.com</a> در ارتباط باشید.
+            This is a test version. For the production version, please contact <a href="https://adschicrm.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AdsChi.com</a>.
           </footer>
         </div>
       </SidebarInset>
     </div>
   );
 }
+
