@@ -48,15 +48,12 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
     if (currentUser.role === 'DepartmentEmployee' && currentUser.categoryAccess) {
       return MOCK_PRODUCTS.filter(p => p.category === currentUser.categoryAccess && p.status !== 'Out of Stock' && p.status !== 'Damaged');
     }
-    // For Admin/Manager, show all non-damaged/out-of-stock products.
-    // Or if DepartmentEmployee has no categoryAccess (should not happen with proper setup)
     return MOCK_PRODUCTS.filter(p => p.status !== 'Out of Stock' && p.status !== 'Damaged');
   }, [currentUser]);
 
   useEffect(() => {
     if (isOpen) {
         if (existingRequest) {
-        // Deep copy items to prevent direct state mutation issues if modal is re-opened with same existingRequest
         setItems(existingRequest.items.map(item => ({...item}))); 
         setReasonForRequest(existingRequest.reasonForRequest);
         try {
@@ -66,7 +63,6 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
             setRequestedDate(addDays(new Date(), 7));
         }
         } else {
-        // Reset to default for new request
         setItems([{ productId: '', productName: '', quantity: 1 }]);
         setReasonForRequest('');
         setRequestedDate(addDays(new Date(), 7));
@@ -85,7 +81,6 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
         productName: product ? product.name : '',
       };
     } else if (field === 'quantity') {
-       // Ensure quantity is a positive number
        newItems[index] = { ...newItems[index], quantity: Math.max(1, Number(value)) }; 
     }
     setItems(newItems);
@@ -121,14 +116,14 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
     onSubmit({
       items: items.map(item => ({ productId: item.productId, productName: item.productName, quantity: item.quantity })),
       reasonForRequest,
-      requestedDate: format(requestedDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // Ensure full ISO string for consistency
+      requestedDate: format(requestedDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
     });
-    onClose(); // Close modal on successful submission
+    onClose();
   };
   
-  const getProductStock = (productId: string): number | string => {
+  const getProductStock = (productId: string): string => {
     const product = MOCK_PRODUCTS.find(p => p.id === productId);
-    return product ? product.quantity : 'N/A';
+    return product ? `${product.quantity} units (Status: ${product.status})` : 'N/A';
   }
 
   return (
@@ -141,14 +136,12 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
           </DialogDescription>
         </DialogHeader>
 
-        {/* Scrollable content area */}
-        <div className="space-y-6 py-4 flex-grow overflow-y-auto pr-3"> {/* Added pr-3 for scrollbar */}
+        <div className="space-y-6 py-4 flex-grow overflow-y-auto pr-3">
           <div className="space-y-2">
             <Label className="text-base font-semibold">Requested Items</Label>
-            {/* Scrollable items section */}
-            <div className="space-y-3 max-h-[calc(90vh-350px)] overflow-y-auto pr-1"> 
+            <div className="space-y-3 max-h-[calc(90vh-400px)] sm:max-h-[calc(90vh-350px)] overflow-y-auto pr-1 border rounded-md p-2 bg-muted/20"> 
               {items.map((item, index) => (
-                <div key={index} className="flex flex-col sm:flex-row items-start sm:items-end gap-2 p-3 border rounded-md bg-muted/30">
+                <div key={index} className="flex flex-col sm:flex-row items-start sm:items-end gap-2 p-3 border rounded-md bg-card shadow-sm">
                   <div className="flex-grow w-full space-y-1">
                     <Label htmlFor={`product-${index}`} className="text-xs">Product</Label>
                     <Select
@@ -162,18 +155,18 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
                         {availableProductsForCurrentUser.length === 0 && <SelectItem value="no-products" disabled>No products available for your department</SelectItem>}
                         {availableProductsForCurrentUser.map((product) => (
                           <SelectItem key={product.id} value={product.id}>
-                            {product.name} (SKU: {product.sku}) - Stock: {product.quantity}
+                            {product.name} (SKU: {product.sku})
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     {item.productId && (
                         <p className="text-xs text-muted-foreground ml-1">
-                            Selected: {item.productName || 'Product Name Not Found'} (Current Stock: {getProductStock(item.productId)})
+                            {item.productName ? `Current Stock: ${getProductStock(item.productId)}` : 'Product details not found'}
                         </p>
                     )}
                   </div>
-                  <div className="w-full sm:w-[120px] space-y-1">
+                  <div className="w-full sm:w-[100px] space-y-1">
                     <Label htmlFor={`quantity-${index}`} className="text-xs">Quantity</Label>
                     <Input
                       id={`quantity-${index}`}
@@ -184,8 +177,8 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
                       className="h-9"
                     />
                   </div>
-                  {items.length > 1 && (
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="text-destructive hover:bg-destructive/10 h-9 w-9 shrink-0 mt-2 sm:mt-0">
+                  {items.length > 0 && ( // Always show remove if at least one item, but logic in handleRemoveItem prevents removing the last one
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="text-destructive hover:bg-destructive/10 h-9 w-9 shrink-0 mt-2 sm:mt-0 self-end sm:self-auto" title="Remove Item">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
@@ -213,14 +206,13 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
             <DatePicker
               date={requestedDate}
               onDateChange={setRequestedDate}
-              className="w-full" // Ensure date picker takes full width in its container
-              // You can add a disabled prop to DatePicker if needed:
-              // disabled={(date) => date < new Date() || date < addDays(new Date(), -1)} // Example: disable past dates
+              className="w-full"
+              disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() -1))} // Disable past dates
             />
           </div>
         </div>
 
-        <DialogFooter className="sm:justify-end gap-2 pt-4 border-t mt-auto"> {/* mt-auto to push footer down */}
+        <DialogFooter className="sm:justify-end gap-2 pt-4 border-t mt-auto">
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel

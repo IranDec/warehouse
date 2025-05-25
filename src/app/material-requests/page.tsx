@@ -32,7 +32,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // AlertDialogTrigger removed as it's part of DropdownMenuItem
+} from "@/components/ui/alert-dialog";
+import { DateRangePicker } from '@/components/common/date-range-picker';
+import type { DateRange } from 'react-day-picker';
+import { addDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
 
 export default function MaterialRequestsPage() {
@@ -41,7 +44,13 @@ export default function MaterialRequestsPage() {
   const [requests, setRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaterialRequest | null>(null);
+  
+  // Filter states
   const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterRequester, setFilterRequester] = useState<string>('');
+  const [filterDepartment, setFilterDepartment] = useState<string>('');
+  const [filterSubmissionDate, setFilterSubmissionDate] = useState<DateRange | undefined>(undefined);
+
   const [showCancelConfirm, setShowCancelConfirm] = useState<MaterialRequest | null>(null);
 
   const canCreateRequests = currentUser?.role === 'DepartmentEmployee';
@@ -56,6 +65,17 @@ export default function MaterialRequestsPage() {
     }
     return "View material requests. Contact an administrator for more permissions or to submit requests.";
   }, [canManageRequests, canCreateRequests]);
+
+  const uniqueRequesters = useMemo(() => {
+    const requesters = new Set(MOCK_MATERIAL_REQUESTS.map(r => r.requesterName));
+    return Array.from(requesters).sort();
+  }, []); // Based on all mock requests to have a consistent list
+
+  const uniqueDepartments = useMemo(() => {
+    const departments = new Set(MOCK_MATERIAL_REQUESTS.map(r => r.departmentCategory));
+    return Array.from(departments).sort();
+  }, []); // Based on all mock requests for consistency
+
 
   const handleAddNewRequest = (newRequest: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
     if (!currentUser) return;
@@ -103,7 +123,7 @@ export default function MaterialRequestsPage() {
               approverId: isManagerAction ? currentUser.id : req.approverId,
               approverName: isManagerAction ? currentUser.name : req.approverName,
               actionDate: new Date().toISOString(),
-              approverNotes: notes || req.approverNotes, // Keep existing notes if new ones aren't provided
+              approverNotes: notes || req.approverNotes,
             }
           : req
       )
@@ -118,12 +138,47 @@ export default function MaterialRequestsPage() {
   const filteredRequests = useMemo(() => {
     return requests.filter(request => {
       const statusMatch = filterStatus ? request.status === filterStatus : true;
-      if (currentUser?.role === 'DepartmentEmployee') {
-        return request.requesterId === currentUser.id && statusMatch;
+      const requesterMatch = filterRequester ? request.requesterName === filterRequester : true;
+      const departmentMatch = filterDepartment ? request.departmentCategory === filterDepartment : true;
+      
+      let submissionDateMatch = true;
+      if (filterSubmissionDate?.from && filterSubmissionDate?.to) {
+        try {
+          const submissionDate = new Date(request.submissionDate);
+          submissionDateMatch = isWithinInterval(submissionDate, { 
+            start: startOfDay(filterSubmissionDate.from), 
+            end: endOfDay(filterSubmissionDate.to) 
+          });
+        } catch (e) {
+          console.error("Error parsing submission date for filtering:", request.submissionDate, e);
+          submissionDateMatch = false; // Or true, depending on desired behavior for invalid dates
+        }
+      } else if (filterSubmissionDate?.from) {
+         try {
+          const submissionDate = new Date(request.submissionDate);
+          submissionDateMatch = submissionDate >= startOfDay(filterSubmissionDate.from);
+        } catch (e) {
+           console.error("Error parsing submission date for filtering (from only):", request.submissionDate, e);
+           submissionDateMatch = false;
+        }
       }
-      return statusMatch;
+
+
+      let userSpecificFilter = true;
+      if (currentUser?.role === 'DepartmentEmployee') {
+        userSpecificFilter = request.requesterId === currentUser.id;
+      }
+
+      return statusMatch && requesterMatch && departmentMatch && submissionDateMatch && userSpecificFilter;
     });
-  }, [requests, currentUser, filterStatus]);
+  }, [requests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate]);
+  
+  const clearAllFilters = () => {
+    setFilterStatus('');
+    setFilterRequester('');
+    setFilterDepartment('');
+    setFilterSubmissionDate(undefined);
+  };
 
   const columns: ColumnDef<MaterialRequest>[] = [
     { accessorKey: "id", header: "Request ID" },
@@ -136,15 +191,19 @@ export default function MaterialRequestsPage() {
         const items = row.original.items;
         if (!items || items.length === 0) return "No items";
         return (
-          <ul className="list-disc list-inside text-xs">
+          <ul className="list-disc list-inside text-xs max-w-[200px] truncate">
             {items.map(item => (
-              <li key={item.productId}>{`${item.productName} (Qty: ${item.quantity})`}</li>
+              <li key={item.productId} title={`${item.productName} (Qty: ${item.quantity})`}>{`${item.productName} (Qty: ${item.quantity})`}</li>
             ))}
           </ul>
         )
       }
     },
-    { accessorKey: "reasonForRequest", header: "Reason" },
+    { 
+      accessorKey: "reasonForRequest", 
+      header: "Reason",
+      cell: ({ row }) => <div className="max-w-[200px] truncate" title={row.original.reasonForRequest}>{row.original.reasonForRequest}</div>
+    },
     {
       accessorKey: "requestedDate",
       header: "Date Needed",
@@ -156,19 +215,19 @@ export default function MaterialRequestsPage() {
       cell: ({ row }) => {
         const status = row.original.status;
         let badgeClass = "";
+        // Using theme variables via CSS for better consistency is ideal,
+        // but for direct Tailwind, specific color shades are used here.
+        // Ensure these colors have good contrast in both light and dark themes.
         switch(status) {
-            case "Pending": badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200"; break;
-            case "Approved": badgeClass = "bg-green-100 text-green-800 border-green-300 hover:bg-green-200"; break;
-            case "Completed": badgeClass = "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200"; break;
-            case "Rejected": badgeClass = "bg-red-100 text-red-800 border-red-300 hover:bg-red-200"; break;
-            case "Cancelled": badgeClass = "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200"; break;
+            case "Pending": badgeClass = "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30"; break;
+            case "Approved": badgeClass = "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/50 hover:bg-green-500/30"; break;
+            case "Completed": badgeClass = "bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/50 hover:bg-blue-500/30"; break;
+            case "Rejected": badgeClass = "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/50 hover:bg-red-500/30"; break;
+            case "Cancelled": badgeClass = "bg-slate-500/20 text-slate-700 dark:text-slate-400 border-slate-500/50 hover:bg-slate-500/30"; break;
             default: badgeClass = "bg-secondary text-secondary-foreground border-transparent";
         }
         
-        return <Badge variant={
-            status === "Rejected" || status === "Cancelled" ? "destructive" : 
-            status === "Pending" ? "outline" : "default"
-        } className={badgeClass}>{status}</Badge>;
+        return <Badge variant="outline" className={cn("font-medium", badgeClass)}>{status}</Badge>;
       },
     },
     {
@@ -181,7 +240,7 @@ export default function MaterialRequestsPage() {
         header: "Approver/Notes",
         cell: ({ row }) => {
             const { approverName, approverNotes, status } = row.original;
-            if (status === 'Pending' || status === 'Cancelled' && !approverName) return <span className="text-xs text-muted-foreground">N/A</span>;
+            if (status === 'Pending' || (status === 'Cancelled' && !approverName)) return <span className="text-xs text-muted-foreground">N/A</span>;
             return (
                 <div className="text-xs">
                     {approverName && <p className="font-medium">{approverName}</p>}
@@ -213,7 +272,6 @@ export default function MaterialRequestsPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     const reason = prompt('Reason for rejection (optional):');
-                    // prompt returns null if cancelled, empty string if OK with no input
                     if (reason !== null) { 
                       handleAction(request.id, 'Rejected', reason || undefined);
                     }
@@ -228,12 +286,15 @@ export default function MaterialRequestsPage() {
                   <DropdownMenuItem onClick={() => { setEditingRequest(request); setIsModalOpen(true); }}>
                     <Edit className="mr-2 h-4 w-4" /> Edit Request
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowCancelConfirm(request)}>
-                    <Ban className="mr-2 h-4 w-4 text-orange-500" /> Cancel Request
+                  <DropdownMenuItem onClick={() => setShowCancelConfirm(request)} className="text-orange-600 focus:text-orange-700 focus:bg-orange-100 dark:focus:bg-orange-900/50">
+                    <Ban className="mr-2 h-4 w-4" /> Cancel Request
                   </DropdownMenuItem>
                  </>
               )}
-              {(request.status !== 'Pending' || (!canManageRequests && !isRequester)) && (!isRequester || request.status !== 'Pending') && (
+              {/* Logic to show "No actions available" if no specific actions are suitable */}
+              { !(canManageRequests && request.status === 'Pending') && 
+                !(isRequester && request.status === 'Pending') &&
+                (
                 <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -261,6 +322,7 @@ export default function MaterialRequestsPage() {
 
       <div className="space-y-4 pt-2">
          <div className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
+            <DateRangePicker date={filterSubmissionDate} onDateChange={setFilterSubmissionDate} />
             <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value === ALL_FILTER_VALUE ? "" : value)}>
               <SelectTrigger className="w-full md:w-[180px] h-9">
                 <SelectValue placeholder="All Statuses" />
@@ -270,11 +332,37 @@ export default function MaterialRequestsPage() {
                 {MATERIAL_REQUEST_STATUS_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button variant="ghost" onClick={() => setFilterStatus('')} className="h-9">
-              <Filter className="mr-2 h-4 w-4" /> Clear Filters
+             <Select 
+                value={filterRequester} 
+                onValueChange={(value) => setFilterRequester(value === ALL_FILTER_VALUE ? "" : value)}
+                disabled={currentUser?.role === 'DepartmentEmployee'}
+            >
+              <SelectTrigger className="w-full md:w-[200px] h-9">
+                <SelectValue placeholder="All Requesters" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>All Requesters</SelectItem>
+                {uniqueRequesters.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select 
+                value={filterDepartment} 
+                onValueChange={(value) => setFilterDepartment(value === ALL_FILTER_VALUE ? "" : value)}
+                disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess}
+            >
+              <SelectTrigger className="w-full md:w-[200px] h-9">
+                <SelectValue placeholder={currentUser?.role === 'DepartmentEmployee' && currentUser.categoryAccess ? currentUser.categoryAccess : "All Departments"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>All Departments</SelectItem>
+                {uniqueDepartments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" onClick={clearAllFilters} className="h-9">
+              <Filter className="mr-2 h-4 w-4" /> Clear All Filters
             </Button>
         </div>
-        <DataTable columns={columns} data={filteredRequests} filterColumn="requesterName" filterInputPlaceholder="Filter by requester..."/>
+        <DataTable columns={columns} data={filteredRequests} filterColumn="id" filterInputPlaceholder="Filter by Request ID..."/>
       </div>
 
       {currentUser && (
@@ -285,7 +373,7 @@ export default function MaterialRequestsPage() {
             const updatedReq = {
               ...editingRequest,
               ...data,
-              items: data.items, // Ensure items are correctly mapped
+              items: data.items,
               requestedDate: data.requestedDate,
               reasonForRequest: data.reasonForRequest,
             };
