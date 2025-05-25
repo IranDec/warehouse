@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, PlusCircle, Filter, MoreHorizontal, CheckCircle, XCircle, Edit } from "lucide-react";
+import { ClipboardList, PlusCircle, Filter, MoreHorizontal, CheckCircle, XCircle, Edit, Ban } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAuth } from '@/contexts/auth-context';
 import type { MaterialRequest, MaterialRequestStatus, UserRole, RequestedItem } from '@/lib/types';
@@ -23,6 +23,17 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 export default function MaterialRequestsPage() {
@@ -32,24 +43,25 @@ export default function MaterialRequestsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaterialRequest | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('');
+  const [showCancelConfirm, setShowCancelConfirm] = useState<MaterialRequest | null>(null);
 
   const canCreateRequests = currentUser?.role === 'DepartmentEmployee';
   const canManageRequests = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
 
   const pageDescription = useMemo(() => {
     if (canManageRequests) {
-      return "Review, approve, or reject material requests submitted by departments.";
+      return "Review, approve, or reject material requests submitted by departments. You can also track the status of all requests.";
     }
     if (canCreateRequests) {
-      return "Submit new requests for raw materials and components for your department. You can also view and edit your pending requests.";
+      return "Submit new requests for materials for your department. You can view, edit (if pending), or cancel your submitted requests.";
     }
-    return "View material requests. Contact an administrator for more permissions.";
+    return "View material requests. Contact an administrator for more permissions or to submit requests.";
   }, [canManageRequests, canCreateRequests]);
 
   const handleAddNewRequest = (newRequest: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
     if (!currentUser) return;
     const fullNewRequest: MaterialRequest = {
-      id: `mr${Date.now()}`, // Simple unique ID for mock
+      id: `mr${Date.now()}`, 
       submissionDate: new Date().toISOString(),
       status: 'Pending',
       requesterId: currentUser.id,
@@ -67,18 +79,24 @@ export default function MaterialRequestsPage() {
   }
 
   const handleAction = (requestId: string, newStatus: MaterialRequestStatus, notes?: string) => {
-    if (!currentUser || !canManageRequests) { // Ensure only managers can perform actions
+    if (!currentUser) return;
+
+    const isManagerAction = (newStatus === 'Approved' || newStatus === 'Rejected') && canManageRequests;
+    const isRequesterAction = newStatus === 'Cancelled' && requests.find(r => r.id === requestId)?.requesterId === currentUser.id;
+
+    if (!isManagerAction && !isRequesterAction) {
         toast({ title: "Permission Denied", description: "You do not have permission to perform this action.", variant: "destructive"});
         return;
     }
+
     setRequests(prevRequests =>
       prevRequests.map(req =>
         req.id === requestId
           ? {
               ...req,
               status: newStatus,
-              approverId: currentUser.id,
-              approverName: currentUser.name,
+              approverId: isManagerAction ? currentUser.id : req.approverId,
+              approverName: isManagerAction ? currentUser.name : req.approverName,
               actionDate: new Date().toISOString(),
               approverNotes: notes || req.approverNotes,
             }
@@ -86,6 +104,9 @@ export default function MaterialRequestsPage() {
       )
     );
     toast({ title: `Request ${newStatus}`, description: `Request ${requestId} has been ${newStatus.toLowerCase()}.` });
+    if (showCancelConfirm?.id === requestId) {
+      setShowCancelConfirm(null);
+    }
   };
 
 
@@ -129,16 +150,17 @@ export default function MaterialRequestsPage() {
       header: "Status",
       cell: ({ row }) => {
         const status = row.original.status;
-        let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "default";
-        if (status === "Pending") badgeVariant = "outline"; // Yellowish
-        if (status === "Approved" || status === "Completed") badgeVariant = "default"; // Greenish
-        if (status === "Rejected" || status === "Cancelled") badgeVariant = "destructive";
-
-        return <Badge variant={badgeVariant} className={
-          status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-          status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-          status === 'Completed' ? 'bg-blue-100 text-blue-800 border-blue-300' : ''
-        }>{status}</Badge>;
+        let badgeClass = "bg-secondary text-secondary-foreground border-transparent";
+        if (status === "Pending") badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200";
+        if (status === "Approved") badgeClass = "bg-green-100 text-green-800 border-green-300 hover:bg-green-200";
+        if (status === "Completed") badgeClass = "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200";
+        if (status === "Rejected") badgeClass = "bg-red-100 text-red-800 border-red-300 hover:bg-red-200";
+        if (status === "Cancelled") badgeClass = "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200";
+        
+        return <Badge variant={
+            status === "Rejected" || status === "Cancelled" ? "destructive" : 
+            status === "Pending" ? "outline" : "default"
+        } className={badgeClass}>{status}</Badge>;
       },
     },
     {
@@ -152,61 +174,48 @@ export default function MaterialRequestsPage() {
         const request = row.original;
         const isRequester = currentUser?.id === request.requesterId;
 
-        if (canManageRequests && request.status === 'Pending') {
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Manager Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => handleAction(request.id, 'Approved')}>
-                  <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  const reason = prompt('Reason for rejection (optional):');
-                  // Check if prompt was cancelled (null) or empty string was submitted
-                  if (reason !== null) { // Proceed if not cancelled
-                    handleAction(request.id, 'Rejected', reason || undefined);
-                  }
-                }}>
-                  <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reject
-                </DropdownMenuItem>
-                {isRequester && ( // Manager can also be requester
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => { setEditingRequest(request); setIsModalOpen(true); }}>
-                      <Edit className="mr-2 h-4 w-4" /> Edit Request
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        }
-        
-        if (isRequester && request.status === 'Pending') {
-           return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                 <DropdownMenuLabel>Requester Actions</DropdownMenuLabel>
-                 <DropdownMenuItem onClick={() => { setEditingRequest(request); setIsModalOpen(true); }}>
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              {canManageRequests && request.status === 'Pending' && (
+                <>
+                  <DropdownMenuItem onClick={() => handleAction(request.id, 'Approved')}>
+                    <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const reason = prompt('Reason for rejection (optional):');
+                    if (reason !== null) { 
+                      handleAction(request.id, 'Rejected', reason || undefined);
+                    }
+                  }}>
+                    <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reject
+                  </DropdownMenuItem>
+                </>
+              )}
+              {isRequester && request.status === 'Pending' && (
+                 <>
+                  {(canManageRequests && request.status === 'Pending') && <DropdownMenuSeparator />}
+                  <DropdownMenuItem onClick={() => { setEditingRequest(request); setIsModalOpen(true); }}>
                     <Edit className="mr-2 h-4 w-4" /> Edit Request
                   </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-           );
-        }
-        return null;
+                  <DropdownMenuItem onClick={() => setShowCancelConfirm(request)}>
+                    <Ban className="mr-2 h-4 w-4 text-orange-500" /> Cancel Request
+                  </DropdownMenuItem>
+                 </>
+              )}
+              {(request.status !== 'Pending' || (!canManageRequests && !isRequester)) && (!isRequester || request.status !== 'Pending') && (
+                <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
       },
     },
   ];
@@ -250,11 +259,10 @@ export default function MaterialRequestsPage() {
           isOpen={isModalOpen}
           onClose={() => {setIsModalOpen(false); setEditingRequest(null);}}
           onSubmit={editingRequest ? (data) => {
-            // For editing, we need to merge existing data with new data
             const updatedReq = {
               ...editingRequest,
               ...data,
-              items: data.items, // Ensure items are overwritten
+              items: data.items,
               requestedDate: data.requestedDate,
               reasonForRequest: data.reasonForRequest,
             };
@@ -265,7 +273,28 @@ export default function MaterialRequestsPage() {
           existingRequest={editingRequest}
         />
       )}
+
+      {showCancelConfirm && (
+        <AlertDialog open={!!showCancelConfirm} onOpenChange={() => setShowCancelConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Cancellation</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to cancel material request <span className="font-semibold">{showCancelConfirm.id}</span>? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowCancelConfirm(null)}>No, keep request</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleAction(showCancelConfirm.id, 'Cancelled')}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Yes, Cancel Request
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
-

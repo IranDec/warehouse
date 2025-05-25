@@ -16,11 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DatePicker } from "@/components/common/date-picker"; // Assuming you have a single date picker
+import { DatePicker } from "@/components/common/date-picker"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Trash2, PackagePlus } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import type { RequestedItem, User, MaterialRequest, Product } from '@/lib/types';
-import { MOCK_PRODUCTS } from '@/lib/constants'; // For product selection
+import { MOCK_PRODUCTS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { addDays, format, parseISO } from 'date-fns';
 
@@ -44,23 +44,31 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
   const [reasonForRequest, setReasonForRequest] = useState('');
   const [requestedDate, setRequestedDate] = useState<Date | undefined>(addDays(new Date(), 7));
 
-  const availableProducts = useMemo(() => {
+  const availableProductsForCurrentUser = useMemo(() => {
     if (currentUser.role === 'DepartmentEmployee' && currentUser.categoryAccess) {
       return MOCK_PRODUCTS.filter(p => p.category === currentUser.categoryAccess && p.status !== 'Out of Stock' && p.status !== 'Damaged');
     }
-    return MOCK_PRODUCTS.filter(p => p.status !== 'Out of Stock' && p.status !== 'Damaged'); // Should not happen for employee
+    // For Admin/Manager, show all non-damaged/out-of-stock products if they were to create requests (though UI flow doesn't typically support this for them)
+    // Or if DepartmentEmployee has no categoryAccess for some reason (should not happen with proper setup)
+    return MOCK_PRODUCTS.filter(p => p.status !== 'Out of Stock' && p.status !== 'Damaged');
   }, [currentUser]);
 
   useEffect(() => {
-    if (existingRequest) {
-      setItems(existingRequest.items.map(item => ({...item}))); // Deep copy
-      setReasonForRequest(existingRequest.reasonForRequest);
-      setRequestedDate(parseISO(existingRequest.requestedDate));
-    } else {
-      // Reset form for new request
-      setItems([{ productId: '', productName: '', quantity: 1 }]);
-      setReasonForRequest('');
-      setRequestedDate(addDays(new Date(), 7));
+    if (isOpen) {
+        if (existingRequest) {
+        setItems(existingRequest.items.map(item => ({...item}))); 
+        setReasonForRequest(existingRequest.reasonForRequest);
+        try {
+            setRequestedDate(parseISO(existingRequest.requestedDate));
+        } catch (e) {
+            console.warn("Failed to parse existing request date", existingRequest.requestedDate);
+            setRequestedDate(addDays(new Date(), 7));
+        }
+        } else {
+        setItems([{ productId: '', productName: '', quantity: 1 }]);
+        setReasonForRequest('');
+        setRequestedDate(addDays(new Date(), 7));
+        }
     }
   }, [existingRequest, isOpen]);
 
@@ -68,14 +76,14 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
   const handleItemChange = (index: number, field: keyof RequestedItem, value: string | number) => {
     const newItems = [...items];
     if (field === 'productId') {
-      const product = availableProducts.find(p => p.id === value);
+      const product = availableProductsForCurrentUser.find(p => p.id === value);
       newItems[index] = {
         ...newItems[index],
         productId: String(value),
         productName: product ? product.name : '',
       };
     } else if (field === 'quantity') {
-       newItems[index] = { ...newItems[index], quantity: Math.max(1, Number(value)) }; // Ensure quantity is at least 1
+       newItems[index] = { ...newItems[index], quantity: Math.max(1, Number(value)) }; 
     }
     setItems(newItems);
   };
@@ -95,7 +103,7 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
 
   const handleSubmit = () => {
     if (items.some(item => !item.productId || item.quantity <= 0)) {
-      toast({ title: "Invalid Items", description: "Please select a product and specify a valid quantity for all items.", variant: "destructive" });
+      toast({ title: "Invalid Items", description: "Please select a product and specify a valid quantity (>=1) for all items.", variant: "destructive" });
       return;
     }
     if (!reasonForRequest.trim()) {
@@ -110,10 +118,15 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
     onSubmit({
       items: items.map(item => ({ productId: item.productId, productName: item.productName, quantity: item.quantity })),
       reasonForRequest,
-      requestedDate: format(requestedDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // ISO string
+      requestedDate: format(requestedDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), 
     });
-    onClose(); // Close modal after submission
+    onClose(); 
   };
+  
+  const getProductStock = (productId: string): number | string => {
+    const product = MOCK_PRODUCTS.find(p => p.id === productId);
+    return product ? product.quantity : 'N/A';
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -125,50 +138,56 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4 flex-grow overflow-y-auto pr-2">
+        <div className="space-y-6 py-4 flex-grow overflow-y-auto pr-3"> {/* Added pr-3 for scrollbar */}
           <div className="space-y-2">
             <Label className="text-base font-semibold">Requested Items</Label>
-            {items.map((item, index) => (
-              <div key={index} className="flex flex-col sm:flex-row items-start sm:items-end gap-2 p-3 border rounded-md bg-muted/30">
-                <div className="space-y-1 flex-grow w-full sm:w-auto">
-                  <Label htmlFor={`product-${index}`} className="text-xs">Product</Label>
-                  <Select
-                    value={item.productId}
-                    onValueChange={(value) => handleItemChange(index, 'productId', value)}
-
-                  >
-                    <SelectTrigger id={`product-${index}`}>
-                      <SelectValue placeholder="Select product..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProducts.length === 0 && <SelectItem value="no-products" disabled>No products available for your department</SelectItem>}
-                      {availableProducts.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} (SKU: {product.sku}) - Stock: {product.quantity}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <div className="space-y-3 max-h-[calc(90vh-350px)] overflow-y-auto pr-1"> {/* Scrollable items section */}
+              {items.map((item, index) => (
+                <div key={index} className="flex flex-col sm:flex-row items-start sm:items-end gap-2 p-3 border rounded-md bg-muted/30">
+                  <div className="flex-grow w-full space-y-1">
+                    <Label htmlFor={`product-${index}`} className="text-xs">Product</Label>
+                    <Select
+                      value={item.productId}
+                      onValueChange={(value) => handleItemChange(index, 'productId', value)}
+                    >
+                      <SelectTrigger id={`product-${index}`} className="h-9">
+                        <SelectValue placeholder="Select product..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableProductsForCurrentUser.length === 0 && <SelectItem value="no-products" disabled>No products available for your department</SelectItem>}
+                        {availableProductsForCurrentUser.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name} (SKU: {product.sku}) - Stock: {product.quantity}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {item.productId && (
+                        <p className="text-xs text-muted-foreground ml-1">
+                            Selected: {item.productName} (Current Stock: {getProductStock(item.productId)})
+                        </p>
+                    )}
+                  </div>
+                  <div className="w-full sm:w-[120px] space-y-1">
+                    <Label htmlFor={`quantity-${index}`} className="text-xs">Quantity</Label>
+                    <Input
+                      id={`quantity-${index}`}
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value, 10))}
+                      min="1"
+                      className="h-9"
+                    />
+                  </div>
+                  {items.length > 1 && (
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="text-destructive hover:bg-destructive/10 h-9 w-9 shrink-0 mt-2 sm:mt-0">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                <div className="space-y-1 w-full sm:w-[100px]">
-                  <Label htmlFor={`quantity-${index}`} className="text-xs">Quantity</Label>
-                  <Input
-                    id={`quantity-${index}`}
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value, 10))}
-                    min="1"
-                    className="h-9"
-                  />
-                </div>
-                {items.length > 1 && (
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="text-destructive hover:bg-destructive/10 h-9 w-9 shrink-0">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button variant="outline" onClick={handleAddItem} className="w-full sm:w-auto text-sm">
+              ))}
+            </div>
+            <Button variant="outline" onClick={handleAddItem} className="w-full sm:w-auto text-sm mt-2">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Another Item
             </Button>
           </div>
@@ -194,7 +213,7 @@ export function NewMaterialRequestModal({ isOpen, onClose, onSubmit, currentUser
           </div>
         </div>
 
-        <DialogFooter className="sm:justify-end gap-2 pt-4 border-t">
+        <DialogFooter className="sm:justify-end gap-2 pt-4 border-t mt-auto"> {/* mt-auto to push footer down */}
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel
