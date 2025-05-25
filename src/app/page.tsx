@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { 
   Package, AlertTriangle, Activity, TrendingUp, TrendingDown, ListOrdered, Settings, ShoppingCart, Component,
-  ClipboardList, BarChart3, ArrowRight, PackageSearch, ClockHistory, CheckCircle2, XCircle, Hourglass
+  ClipboardList, BarChart3, ArrowRight, PackageSearch, Clock, CheckCircle2, XCircle, Hourglass
 } from "lucide-react";
 import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS, MOCK_MATERIAL_REQUESTS } from "@/lib/constants";
 import type { Product, BillOfMaterial, InventoryTransaction, MaterialRequest } from "@/lib/types";
@@ -274,7 +274,7 @@ export default function DashboardPage() {
         
         <Card className="shadow-sm md:col-span-2">
           <CardHeader>
-            <CardTitle className="flex items-center"><ClockHistory className="mr-2 h-5 w-5 text-primary" /> Recent Stock Movements</CardTitle>
+            <CardTitle className="flex items-center"><Clock className="mr-2 h-5 w-5 text-primary" /> Recent Stock Movements</CardTitle>
             <CardDescription>Last 5 inventory transactions. <Link href="/inventory" className="text-primary hover:underline text-xs">View All</Link></CardDescription>
           </CardHeader>
           <CardContent>
@@ -427,3 +427,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
