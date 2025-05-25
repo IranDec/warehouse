@@ -14,20 +14,20 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { MOCK_PRODUCTS, PRODUCT_STATUS_OPTIONS, ALL_FILTER_VALUE } from '@/lib/constants';
+import { PRODUCT_STATUS_OPTIONS, ALL_FILTER_VALUE } from '@/lib/constants';
 import type { Product, ProductStatus } from '@/lib/types';
-import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Edit, PlusCircle } from 'lucide-react';
+import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Edit, PlusCircle, Info } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
 import { useAuth } from '@/contexts/auth-context';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
 
 export default function ProductsPage() {
   const { currentUser, categories, warehouses, products: contextProducts, setProducts: setContextProducts } = useAuth(); 
-  // Use products from context now
-  // const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS); 
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
   const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
@@ -188,6 +188,17 @@ export default function ProductsPage() {
     });
   }, [contextProducts, filterName, filterCategory, filterStatus, filterWarehouse, currentUser]);
 
+  const productInsights = useMemo(() => {
+    const lowStockCount = contextProducts.filter(p => p.status === 'Low Stock' || p.quantity <= p.reorderLevel).length;
+    const outOfStockCount = contextProducts.filter(p => p.status === 'Out of Stock').length;
+    return {
+      totalProducts: contextProducts.length,
+      totalWarehouses: warehouses.length,
+      lowStockCount,
+      outOfStockCount,
+    };
+  }, [contextProducts, warehouses]);
+
   const columns: ColumnDef<Product>[] = [
     {
       accessorKey: "imageUrl",
@@ -262,9 +273,11 @@ export default function ProductsPage() {
                 <Edit className="mr-2 h-4 w-4" /> Edit Product
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={() => handleOpenStatusModal(row.original)}>
-              <Edit3 className="mr-2 h-4 w-4" /> Update Status
-            </DropdownMenuItem>
+            {(canEditProducts || (currentUser?.role === 'DepartmentEmployee' && currentUser.categoryAccess === row.original.category)) && (
+              <DropdownMenuItem onClick={() => handleOpenStatusModal(row.original)}>
+                <Edit3 className="mr-2 h-4 w-4" /> Update Status
+              </DropdownMenuItem>
+            )}
             
             {canDeleteProducts && (
               <>
@@ -296,7 +309,7 @@ export default function ProductsPage() {
       />
 
       {(canAddProducts || canEditProducts) && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" id="import">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3" id="import">
           <FileUploadCard
             title="Import Products (CSV)"
             description={`Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description. Ensure 'warehouseId' matches an existing ID from the ${warehouses.length} available warehouses.`}
@@ -304,6 +317,7 @@ export default function ProductsPage() {
             acceptedFileTypes=".csv"
             icon={<UploadCloud className="h-8 w-8 text-primary" />}
             disabled={!canAddProducts && !canEditProducts}
+            className="lg:col-span-1"
           />
           <FileUploadCard
             title="Update Inventory (CSV)"
@@ -312,26 +326,49 @@ export default function ProductsPage() {
             acceptedFileTypes=".csv"
             icon={<UploadCloud className="h-8 w-8 text-primary" />}
             disabled={!canEditProducts}
+            className="lg:col-span-1"
           />
-          <div className="lg:col-span-1 p-6 bg-card rounded-lg shadow-lg border">
-            <h3 className="text-lg font-semibold mb-2 text-foreground">Product Insights</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Currently managing <span className="font-bold text-primary">{contextProducts.length}</span> distinct products across <span className="font-bold text-primary">{warehouses.length}</span> warehouses.
-              Monitor stock levels and statuses to ensure optimal inventory management.
-            </p>
-            <Image src="https://placehold.co/300x150.png" alt="Product insights placeholder" width={300} height={150} className="rounded-md w-full" data-ai-hint="warehouse shelves" />
-          </div>
+          <Card className="lg:col-span-1 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-6 w-6 text-primary" />
+                Product Insights
+              </CardTitle>
+              <CardDescription>A quick overview of your product catalog.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Products:</span>
+                <span className="font-semibold">{productInsights.totalProducts}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Managed Warehouses:</span>
+                <span className="font-semibold">{productInsights.totalWarehouses}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Low Stock Items:</span>
+                <span className={`font-semibold ${productInsights.lowStockCount > 0 ? 'text-yellow-600 dark:text-yellow-400' : ''}`}>{productInsights.lowStockCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Out of Stock Items:</span>
+                <span className={`font-semibold ${productInsights.outOfStockCount > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{productInsights.outOfStockCount}</span>
+              </div>
+              <p className="text-xs text-muted-foreground pt-3">
+                Use the "Reports" section for detailed inventory analysis and reorder planning.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
       {!canAddProducts && !canEditProducts && (
          <div className="p-6 bg-card rounded-lg shadow-lg border text-center">
-            <h3 className="text-lg font-semibold mb-2 text-foreground">Product Insights</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <CardTitle className="text-lg font-semibold mb-2 text-foreground">Product Information</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground mb-4">
               You are viewing products based on your assigned category: <span className="font-bold text-primary">{currentUser?.categoryAccess || 'N/A'}</span>.
-            </p>
-            <p className="text-sm text-muted-foreground">
+            </CardDescription>
+            <CardDescription className="text-sm text-muted-foreground">
               Contact an administrator for broader access or product management capabilities.
-            </p>
+            </CardDescription>
         </div>
       )}
 
@@ -350,7 +387,7 @@ export default function ProductsPage() {
             disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
-              <SelectValue placeholder="All Categories" />
+              <SelectValue placeholder={currentUser?.role === 'DepartmentEmployee' && currentUser.categoryAccess ? currentUser.categoryAccess : "All Categories"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_FILTER_VALUE}>All Categories</SelectItem>
@@ -403,3 +440,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+
