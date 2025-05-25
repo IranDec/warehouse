@@ -602,12 +602,10 @@ export default function SettingsPage() {
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Edit Rule</span>
                               </Button>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(setting)} className="text-destructive hover:text-destructive/90">
+                              <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(setting)} className="text-destructive hover:text-destructive/90">
                                   <Trash2 className="h-4 w-4" />
                                   <span className="sr-only">Delete Rule</span>
-                                </Button>
-                              </AlertDialogTrigger>
+                              </Button>
                             </TableCell>
                           )}
                         </TableRow>
@@ -649,7 +647,7 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
-               <p className="text-sm text-muted-foreground">Multi-language support (English &amp; Persian) is planned.</p>
+               <p className="text-sm text-muted-foreground">Multi-language support (English & Persian) is planned.</p>
               <Button onClick={() => toast({title: "Simulated Save", description: "Language settings save action clicked."})}>Save Language</Button>
             </CardContent>
           </Card>
