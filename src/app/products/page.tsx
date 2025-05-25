@@ -1,3 +1,4 @@
+
 // src/app/products/page.tsx
 "use client";
 
@@ -26,7 +27,7 @@ export default function ProductsPage() {
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterWarehouse, setFilterWarehouse] = useState<string>('');
+  const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE); // Default to ALL
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedProductForStatus, setSelectedProductForStatus] = useState<Product | null>(null);
@@ -52,6 +53,10 @@ export default function ProductsPage() {
             if (!row.id || !row.name || !row.sku) {
               throw new Error(`Missing required fields (id, name, sku) in row: ${JSON.stringify(row)}`);
             }
+            const warehouseExists = MOCK_WAREHOUSES.some(wh => wh.id === String(row.warehouseId || ''));
+            if (!warehouseExists && row.warehouseId) {
+                toast({ title: "Import Warning", description: `Warehouse ID '${row.warehouseId}' for product '${row.name}' does not exist. Product will be assigned to default or no warehouse.`, variant: "default" });
+            }
             return {
               id: String(row.id),
               name: String(row.name),
@@ -59,7 +64,7 @@ export default function ProductsPage() {
               category: String(row.category || 'Uncategorized'),
               quantity: parseInt(row.quantity || '0', 10),
               reorderLevel: parseInt(row.reorderLevel || '0', 10),
-              warehouseId: String(row.warehouseId || MOCK_WAREHOUSES[0]?.id || 'wh1'),
+              warehouseId: warehouseExists ? String(row.warehouseId) : MOCK_WAREHOUSES[0]?.id || 'wh1',
               status: (row.status as ProductStatus) || 'Available',
               lastUpdated: new Date().toISOString(),
               imageUrl: String(row.imageUrl || 'https://placehold.co/100x100.png'),
@@ -69,7 +74,7 @@ export default function ProductsPage() {
 
           const productMap = new Map(products.map(p => [p.id, p]));
           newProducts.forEach(np => productMap.set(np.id, np));
-          
+
           setProducts(Array.from(productMap.values()));
           toast({ title: "Products Imported", description: `${newProducts.length} products processed from ${file.name}.` });
         } catch (error: any) {
@@ -113,7 +118,7 @@ export default function ProductsPage() {
             });
             return newProductsState;
           });
-          
+
           toast({ title: "Inventory Updated", description: `${updatedCount} products updated from ${file.name}.` });
         } catch (error: any) {
           console.error("Error processing inventory update CSV:", error);
@@ -141,7 +146,7 @@ export default function ProductsPage() {
     );
     toast({ title: "Status Updated", description: `Status for product ${productId} changed to ${newStatus}.` });
   };
-  
+
   const getWarehouseName = (warehouseId: string) => {
     return MOCK_WAREHOUSES.find(wh => wh.id === warehouseId)?.name || 'N/A';
   };
@@ -154,9 +159,9 @@ export default function ProductsPage() {
 
     return userAllowedProducts.filter(product => {
       const nameMatch = product.name.toLowerCase().includes(filterName.toLowerCase()) || product.sku.toLowerCase().includes(filterName.toLowerCase());
-      const categoryMatch = filterCategory ? product.category === filterCategory : true;
-      const statusMatch = filterStatus ? product.status === filterStatus : true;
-      const warehouseMatch = filterWarehouse ? product.warehouseId === filterWarehouse : true;
+      const categoryMatch = filterCategory === ALL_FILTER_VALUE || !filterCategory ? true : product.category === filterCategory;
+      const statusMatch = filterStatus === ALL_FILTER_VALUE || !filterStatus ? true : product.status === filterStatus;
+      const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : product.warehouseId === filterWarehouse;
       return nameMatch && categoryMatch && statusMatch && warehouseMatch;
     });
   }, [products, filterName, filterCategory, filterStatus, filterWarehouse, currentUser]);
@@ -166,13 +171,13 @@ export default function ProductsPage() {
       accessorKey: "imageUrl",
       header: "",
       cell: ({ row }) => (
-        <Image 
-          src={row.original.imageUrl || "https://placehold.co/40x40.png"} 
-          alt={row.original.name} 
-          width={40} 
-          height={40} 
+        <Image
+          src={row.original.imageUrl || "https://placehold.co/40x40.png"}
+          alt={row.original.name}
+          width={40}
+          height={40}
           className="rounded"
-          data-ai-hint="product package" 
+          data-ai-hint="product package"
         />
       ),
     },
@@ -185,8 +190,8 @@ export default function ProductsPage() {
     },
     { accessorKey: "sku", header: "SKU" },
     { accessorKey: "category", header: "Category" },
-    { 
-      accessorKey: "warehouseId", 
+    {
+      accessorKey: "warehouseId",
       header: "Warehouse",
       cell: ({ row }) => getWarehouseName(row.original.warehouseId)
     },
@@ -199,9 +204,9 @@ export default function ProductsPage() {
         let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "default";
         if (status === "Low Stock") badgeVariant = "outline";
         if (status === "Out of Stock" || status === "Damaged") badgeVariant = "destructive";
-        
+
         return <Badge variant={badgeVariant} className={
-          status === 'Low Stock' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : 
+          status === 'Low Stock' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
           status === 'Available' ? 'bg-green-100 text-green-800 border-green-300' : ''
         }>{status}</Badge>;
       },
@@ -226,13 +231,13 @@ export default function ProductsPage() {
             <DropdownMenuItem onClick={() => handleOpenStatusModal(row.original)}>
               <Edit3 className="mr-2 h-4 w-4" /> Update Status
             </DropdownMenuItem>
-            <DropdownMenuItem> {/* Add onClick handler for actual view functionality */}
+            <DropdownMenuItem onClick={() => toast({title: "View Details (Simulated)", description: `Viewing details for ${row.original.name}.`})}>
               <Eye className="mr-2 h-4 w-4" /> View Details
             </DropdownMenuItem>
             {canDeleteProducts && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                   onClick={() => { /* Implement delete logic */ toast({title: "Delete (Simulated)", description: `Product ${row.original.name} delete action clicked.`, variant: "destructive"})}}
                 >
@@ -252,14 +257,14 @@ export default function ProductsPage() {
         title="Product Management"
         icon={Package}
         description="Oversee your product catalog, update stock levels, and manage statuses."
-        actions={canAddProducts ? <Button onClick={() => toast({title: "Add Product (Simulated)", description: "Functionality to add a new product."})}>Add New Product</Button> : null}
+        actions={canAddProducts ? <Button onClick={() => toast({title: "Add Product (Simulated)", description: "This would open a form to add a new product, including warehouse selection."})}>Add New Product</Button> : null}
       />
 
       {(canAddProducts || canEditProducts) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" id="import">
           <FileUploadCard
             title="Import Products (CSV)"
-            description="Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description"
+            description="Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description. Ensure 'warehouseId' matches an existing warehouse ID."
             onFileUpload={handleProductImport}
             acceptedFileTypes=".csv"
             icon={<UploadCloud className="h-8 w-8 text-primary" />}
@@ -276,7 +281,7 @@ export default function ProductsPage() {
           <div className="lg:col-span-1 p-6 bg-card rounded-lg shadow-lg border">
             <h3 className="text-lg font-semibold mb-2 text-foreground">Product Insights</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Currently managing <span className="font-bold text-primary">{products.length}</span> distinct products.
+              Currently managing <span className="font-bold text-primary">{products.length}</span> distinct products across <span className="font-bold text-primary">{MOCK_WAREHOUSES.length}</span> warehouses.
               Monitor stock levels and statuses to ensure optimal inventory management.
             </p>
             <Image src="https://placehold.co/300x150.png" alt="Product insights placeholder" width={300} height={150} className="rounded-md w-full" data-ai-hint="warehouse shelves" />
@@ -304,9 +309,9 @@ export default function ProductsPage() {
             onChange={(e) => setFilterName(e.target.value)}
             className="max-w-xs h-9"
           />
-          <Select 
-            value={filterCategory} 
-            onValueChange={(value) => setFilterCategory(value === ALL_FILTER_VALUE ? "" : value)}
+          <Select
+            value={filterCategory}
+            onValueChange={(value) => setFilterCategory(value)}
             disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
@@ -317,9 +322,9 @@ export default function ProductsPage() {
               {MOCK_CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select 
-            value={filterStatus} 
-            onValueChange={(value) => setFilterStatus(value === ALL_FILTER_VALUE ? "" : value)}
+          <Select
+            value={filterStatus}
+            onValueChange={(value) => setFilterStatus(value)}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
               <SelectValue placeholder="All Statuses" />
@@ -331,7 +336,7 @@ export default function ProductsPage() {
           </Select>
           <Select
             value={filterWarehouse}
-            onValueChange={(value) => setFilterWarehouse(value === ALL_FILTER_VALUE ? "" : value)}
+            onValueChange={(value) => setFilterWarehouse(value)}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
               <SelectValue placeholder="All Warehouses" />
@@ -341,7 +346,7 @@ export default function ProductsPage() {
               {MOCK_WAREHOUSES.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="ghost" onClick={() => { setFilterName(''); if (!(currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess)) setFilterCategory(''); setFilterStatus(''); setFilterWarehouse('');}} className="h-9">
+          <Button variant="ghost" onClick={() => { setFilterName(''); if (!(currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess)) setFilterCategory(ALL_FILTER_VALUE); setFilterStatus(ALL_FILTER_VALUE); setFilterWarehouse(ALL_FILTER_VALUE);}} className="h-9">
             <Filter className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>
@@ -357,3 +362,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

@@ -3,7 +3,7 @@
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import type { User, UserRole } from "@/lib/types";
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS } from "@/lib/constants"; // Added MOCK_BOM_CONFIGURATIONS
+import type { User, UserRole, Warehouse } from "@/lib/types";
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS, MOCK_WAREHOUSES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -29,13 +29,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 interface UserRoleEditorProps {
   user: User;
   onRoleChange: (userId: string, newRole: UserRole) => void;
   currentUserRole: UserRole | undefined;
-  toast: ReturnType<typeof useToast>['toast']; // Pass toast function as a prop
+  toast: ReturnType<typeof useToast>['toast'];
 }
 
 function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRoleEditorProps) {
@@ -48,14 +49,14 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRole
     setIsDialogOpen(false);
   };
 
-  const canEditThisUserRole = 
-    currentUserRole === 'Admin' || 
+  const canEditThisUserRole =
+    currentUserRole === 'Admin' ||
     (currentUserRole === 'WarehouseManager' && user.role === 'DepartmentEmployee');
 
-  if (!canEditThisUserRole && user.role !== currentUserRole) { 
-     return <span className="text-sm text-muted-foreground">{user.role}</span>; 
+  if (!canEditThisUserRole && user.role !== currentUserRole) {
+     return <span className="text-sm text-muted-foreground">{user.role}</span>;
   }
-   if (user.role === 'Admin' && currentUserRole !== 'Admin') { 
+   if (user.role === 'Admin' && currentUserRole !== 'Admin') {
     return <span className="text-sm text-muted-foreground">{user.role} (Cannot change Admin)</span>;
   }
 
@@ -100,19 +101,20 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toast }: UserRole
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { currentUser, users: mockUsers, updateUserRole } = useAuth(); 
+  const { currentUser, users: mockUsers, updateUserRole } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const { toast } = useToast(); // Call useToast at the top level
+  const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   if (!mounted) {
-    return null; 
+    return null;
   }
-  
+
   const canManageUsers = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
+  const canManageWarehouses = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
 
 
   return (
@@ -124,9 +126,10 @@ export default function SettingsPage() {
       />
 
       <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-1">
           <TabsTrigger value="general" className="text-xs sm:text-sm"><Palette className="mr-1 h-4 w-4 hidden sm:inline-flex" /> General</TabsTrigger>
           <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> User Management</TabsTrigger>
+          <TabsTrigger value="warehouses" className="text-xs sm:text-sm"><WarehouseIcon className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Warehouses</TabsTrigger>
           <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations & BOM</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm"><Bell className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Notifications</TabsTrigger>
           <TabsTrigger value="language" className="text-xs sm:text-sm"><Globe className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Language</TabsTrigger>
@@ -144,8 +147,8 @@ export default function SettingsPage() {
                 <Input id="appName" defaultValue="Warehouse Edge" />
               </div>
               <div className="flex items-center space-x-2">
-                <Switch 
-                  id="dark-mode" 
+                <Switch
+                  id="dark-mode"
                   checked={resolvedTheme === 'dark'}
                   onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
                 />
@@ -161,7 +164,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>User Management</CardTitle>
               <CardDescription>
-                {canManageUsers 
+                {canManageUsers
                   ? "Manage user roles. (Simulated: Changes are not persistent)."
                   : "View users. You do not have permission to manage roles."}
               </CardDescription>
@@ -188,7 +191,54 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
+        <TabsContent value="warehouses">
+          <Card>
+            <CardHeader>
+              <CardTitle>Warehouse Management</CardTitle>
+              <CardDescription>
+                View and manage your warehouse locations. Products are assigned to warehouses via their `warehouseId`.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Below is the list of currently defined warehouses (from mock data). In a full application, administrators
+                would be able to add, edit, and delete warehouses here.
+              </p>
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Location</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {MOCK_WAREHOUSES.map((warehouse) => (
+                      <TableRow key={warehouse.id}>
+                        <TableCell className="font-mono text-xs">{warehouse.id}</TableCell>
+                        <TableCell className="font-medium">{warehouse.name}</TableCell>
+                        <TableCell>{warehouse.location || 'N/A'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {canManageWarehouses ? (
+                <Button onClick={() => toast({ title: "Simulated Action", description: "This would open a form to add a new warehouse."})}>
+                  Add New Warehouse (Simulated)
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground">You do not have permission to manage warehouses.</p>
+              )}
+               <p className="text-xs text-muted-foreground pt-4">
+                Products are assigned to warehouses using the 'warehouseId' field during CSV import, or through an 'Add/Edit Product' form (which would include a warehouse selection dropdown from the list above).
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="integrations">
           <Card>
             <CardHeader>
@@ -250,7 +300,7 @@ export default function SettingsPage() {
               </div>
                <div className="border-t pt-6">
                 <h3 className="text-md font-semibold mb-2 flex items-center"><MessageSquareWarning className="mr-2 h-5 w-5 text-primary"/>Low Stock Alert Configuration (Examples)</h3>
-                 {MOCK_NOTIFICATION_SETTINGS.filter(s => s.channel !== 'in-app').length > 0 ? ( // Example: only show email/sms types here
+                 {MOCK_NOTIFICATION_SETTINGS.filter(s => s.channel !== 'in-app').length > 0 ? (
                   <div className="space-y-2 text-xs border rounded-md p-3 bg-muted/20 max-h-60 overflow-y-auto">
                     {MOCK_NOTIFICATION_SETTINGS.filter(s => s.channel !== 'in-app').map(setting => (
                       <div key={setting.id} className="p-2 border-b last:border-b-0">
@@ -270,7 +320,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="language">
           <Card>
             <CardHeader>
