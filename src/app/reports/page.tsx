@@ -11,11 +11,23 @@ import type { InventoryTransaction } from '@/lib/types';
 import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle } from "lucide-react";
 import type { DateRange } from 'react-day-picker';
 import { addDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { DataTable } from "@/components/common/data-table";
+import type { ColumnDef } from "@tanstack/react-table";
 
 interface ReportStat {
   totalQuantity: number;
   transactionCount: number;
   distinctProducts: number;
+}
+
+interface ProductReportItem {
+  productId: string;
+  productName: string;
+  totalInflow: number;
+  totalOutflow: number;
+  totalDamaged: number;
+  totalReturned: number;
+  netChange: number;
 }
 
 const StatCard = ({ title, value, description, icon: Icon, unit = "items" }: { title: string, value: ReportStat, description: string, icon: React.ElementType, unit?: string }) => {
@@ -47,21 +59,17 @@ export default function ReportsPage() {
     };
   });
 
-  const reportData = useMemo(() => {
+  const filteredTransactions = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) {
-      return {
-        damaged: { totalQuantity: 0, transactionCount: 0, distinctProducts: 0 },
-        returned: { totalQuantity: 0, transactionCount: 0, distinctProducts: 0 },
-        inflow: { totalQuantity: 0, transactionCount: 0, distinctProducts: 0 },
-        outflow: { totalQuantity: 0, transactionCount: 0, distinctProducts: 0 },
-      };
+      return [];
     }
-
-    const filteredTransactions = MOCK_INVENTORY_TRANSACTIONS.filter(t => {
+    return MOCK_INVENTORY_TRANSACTIONS.filter(t => {
       const transactionDate = new Date(t.date);
       return isWithinInterval(transactionDate, { start: dateRange.from as Date, end: dateRange.to as Date });
     });
+  }, [dateRange]);
 
+  const overallStats = useMemo(() => {
     const calculateStats = (types: InventoryTransaction['type'][]): ReportStat => {
       const relevantTransactions = filteredTransactions.filter(t => types.includes(t.type));
       const totalQuantity = relevantTransactions.reduce((sum, t) => sum + Math.abs(t.quantityChange), 0);
@@ -73,19 +81,87 @@ export default function ReportsPage() {
       };
     };
     
-    const damagedStats = calculateStats(['Damage']);
-    const returnedStats = calculateStats(['Return']);
-    const inflowStats = calculateStats(['Inflow', 'Initial']);
-    const outflowStats = calculateStats(['Outflow']);
-
-
     return {
-      damaged: damagedStats,
-      returned: returnedStats,
-      inflow: inflowStats,
-      outflow: outflowStats,
+      damaged: calculateStats(['Damage']),
+      returned: calculateStats(['Return']),
+      inflow: calculateStats(['Inflow', 'Initial']),
+      outflow: calculateStats(['Outflow']),
     };
-  }, [dateRange]);
+  }, [filteredTransactions]);
+
+  const productBreakdown = useMemo((): ProductReportItem[] => {
+    const statsMap: Record<string, ProductReportItem> = {};
+
+    filteredTransactions.forEach(transaction => {
+      if (!statsMap[transaction.productId]) {
+        statsMap[transaction.productId] = {
+          productId: transaction.productId,
+          productName: transaction.productName,
+          totalInflow: 0,
+          totalOutflow: 0,
+          totalDamaged: 0,
+          totalReturned: 0,
+          netChange: 0,
+        };
+      }
+      const productStat = statsMap[transaction.productId];
+      productStat.netChange += transaction.quantityChange;
+
+      switch (transaction.type) {
+        case 'Inflow':
+        case 'Initial':
+          productStat.totalInflow += transaction.quantityChange;
+          break;
+        case 'Outflow':
+          productStat.totalOutflow += Math.abs(transaction.quantityChange);
+          break;
+        case 'Damage':
+          productStat.totalDamaged += Math.abs(transaction.quantityChange);
+          break;
+        case 'Return':
+          productStat.totalReturned += transaction.quantityChange;
+          break;
+      }
+    });
+    return Object.values(statsMap);
+  }, [filteredTransactions]);
+
+  const productReportColumns: ColumnDef<ProductReportItem>[] = [
+    { 
+      accessorKey: "productName", 
+      header: "Product Name",
+      cell: ({ row }) => <div className="font-medium">{row.original.productName}</div>
+    },
+    { 
+      accessorKey: "totalInflow", 
+      header: "Total Inflow",
+      cell: ({ row }) => <span className="text-green-600">+{row.original.totalInflow}</span>
+    },
+    { 
+      accessorKey: "totalOutflow", 
+      header: "Total Outflow",
+      cell: ({ row }) => <span className="text-red-600">-{row.original.totalOutflow}</span>
+    },
+    { 
+      accessorKey: "totalDamaged", 
+      header: "Damaged",
+      cell: ({ row }) => <span className="text-orange-600">{row.original.totalDamaged}</span>
+    },
+    { 
+      accessorKey: "totalReturned", 
+      header: "Returned",
+      cell: ({ row }) => <span className="text-blue-600">{row.original.totalReturned}</span>
+    },
+    { 
+      accessorKey: "netChange", 
+      header: "Net Change",
+      cell: ({ row }) => {
+        const netChange = row.original.netChange;
+        const colorClass = netChange > 0 ? 'text-green-600' : netChange < 0 ? 'text-red-600' : 'text-muted-foreground';
+        return <span className={`${colorClass} font-semibold`}>{netChange > 0 ? `+${netChange}` : netChange}</span>;
+      }
+    },
+  ];
 
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
@@ -108,42 +184,46 @@ export default function ReportsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
           title="Total Damaged" 
-          value={reportData.damaged} 
+          value={overallStats.damaged} 
           description="Items marked as damaged" 
           icon={PackageX} 
         />
         <StatCard 
           title="Total Returned" 
-          value={reportData.returned} 
+          value={overallStats.returned} 
           description="Items returned to inventory" 
           icon={Undo2} 
         />
         <StatCard 
           title="Total Stock Inflow" 
-          value={reportData.inflow} 
+          value={overallStats.inflow} 
           description="New items & initial stock" 
           icon={PackagePlus} 
         />
         <StatCard 
           title="Total Stock Outflow" 
-          value={reportData.outflow} 
+          value={overallStats.outflow} 
           description="Items used or sold" 
           icon={PackageMinus} 
         />
       </div>
 
-      {/* Placeholder for more detailed tables or charts */}
-      <Card className="mt-6">
+      <Card className="mt-6 shadow-md">
         <CardHeader>
-          <CardTitle>Detailed Breakdown</CardTitle>
+          <CardTitle>Product Movement Breakdown</CardTitle>
           <CardDescription>
-            Further detailed reports (e.g., by product, category, warehouse) will be available here.
+            Detailed summary of inventory movements per product for the selected date range.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center h-48 text-muted-foreground">
-          <p>Detailed report tables and charts coming soon...</p>
+        <CardContent>
+          {dateRange?.from && dateRange?.to ? (
+            <DataTable columns={productReportColumns} data={productBreakdown} filterColumn="productName" filterInputPlaceholder="Filter by product name..."/>
+          ) : (
+             <p className="text-center text-muted-foreground py-8">Please select a date range to see the detailed breakdown.</p>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
