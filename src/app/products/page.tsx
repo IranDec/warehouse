@@ -3,6 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link'; // Added Link import
 import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { FileUploadCard } from "@/components/common/file-upload-card";
@@ -23,7 +24,7 @@ import Papa from 'papaparse';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function ProductsPage() {
-  const { currentUser, categories } = useAuth(); // Use categories from AuthContext
+  const { currentUser, categories } = useAuth();
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
@@ -58,7 +59,7 @@ export default function ProductsPage() {
             }
             const warehouseExists = MOCK_WAREHOUSES.some(wh => wh.id === String(row.warehouseId || ''));
             if (!warehouseExists && row.warehouseId) {
-                toast({ title: "Import Warning", description: `Warehouse ID '${row.warehouseId}' for product '${row.name}' does not exist. Product will be assigned to default or no warehouse.`, variant: "default" });
+                toast({ title: "Import Warning", description: `Warehouse ID '${row.warehouseId}' for product '${row.name}' does not exist. Product will be assigned to default or no warehouse. Ensure 'warehouseId' matches an existing warehouse ID in constants.`, variant: "default" });
             }
             return {
               id: String(row.id),
@@ -159,7 +160,7 @@ export default function ProductsPage() {
       setProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
       toast({ title: "Product Updated", description: `${productData.name} has been updated.`});
     } else { 
-      setProducts(prev => [productData, ...prev]);
+      setProducts(prev => [{...productData, id: `prod${Date.now()}`}, ...prev]);
       toast({ title: "Product Added", description: `${productData.name} has been added.`});
     }
     setEditingProduct(null);
@@ -247,8 +248,10 @@ export default function ProductsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => toast({title: "View Details (Simulated)", description: `Viewing details for ${row.original.name}.`})}>
-              <Eye className="mr-2 h-4 w-4" /> View Details
+            <DropdownMenuItem asChild>
+              <Link href={`/products/${row.original.id}`}>
+                <Eye className="mr-2 h-4 w-4" /> View Details
+              </Link>
             </DropdownMenuItem>
             {canEditProducts && (
               <DropdownMenuItem onClick={() => handleOpenAddEditModal(row.original)}>
@@ -285,14 +288,14 @@ export default function ProductsPage() {
         title="Product Management"
         icon={Package}
         description="Oversee your product catalog, update stock levels, and manage statuses."
-        actions={canAddProducts ? <Button onClick={() => handleOpenAddEditModal()}><PlusCircle className="mr-2 h-4 w-4" />Add New Product</Button> : null}
+        actions={canAddProducts ? <Button onClick={() => handleOpenAddEditModal()}><PlusCircle className="mr-2 h-4 w-4" />Add New Product (Select Warehouse in Form)</Button> : null}
       />
 
       {(canAddProducts || canEditProducts) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" id="import">
           <FileUploadCard
             title="Import Products (CSV)"
-            description="Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description. Ensure 'warehouseId' matches an existing warehouse ID."
+            description="Upload a .csv file to bulk add or update products. Expects headers: id,name,sku,category,quantity,reorderLevel,warehouseId,status,imageUrl,description. Ensure 'warehouseId' matches an existing ID from MOCK_WAREHOUSES."
             onFileUpload={handleProductImport}
             acceptedFileTypes=".csv"
             icon={<UploadCloud className="h-8 w-8 text-primary" />}
