@@ -2,7 +2,7 @@
 // src/components/material-requests/new-request-modal.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
