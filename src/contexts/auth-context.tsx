@@ -2,8 +2,8 @@
 // src/contexts/auth-context.tsx
 "use client";
 
-import type { User, UserRole, Category, Warehouse } from '@/lib/types';
-import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES } from '@/lib/constants';
+import type { User, UserRole, Category, Warehouse, NotificationSetting } from '@/lib/types';
+import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES, MOCK_NOTIFICATION_SETTINGS } from '@/lib/constants';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface AuthContextType {
@@ -17,6 +17,10 @@ interface AuthContextType {
   warehouses: Warehouse[];
   addWarehouse: (warehouseData: Omit<Warehouse, 'id'>) => void;
   updateWarehouse: (warehouseData: Warehouse) => void;
+  notificationSettings: NotificationSetting[];
+  addNotificationSetting: (settingData: Omit<NotificationSetting, 'id'>) => void;
+  updateNotificationSetting: (settingData: NotificationSetting) => void;
+  deleteNotificationSetting: (settingId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,6 +29,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
   const [warehouses, setWarehouses] = useState<Warehouse[]>(MOCK_WAREHOUSES);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSetting[]>(MOCK_NOTIFICATION_SETTINGS);
+  
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     return users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null;
   });
@@ -88,6 +94,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
+  const addNotificationSetting = (settingData: Omit<NotificationSetting, 'id'>) => {
+    const newSetting: NotificationSetting = {
+      ...settingData,
+      id: `notif${Date.now()}`,
+    };
+    setNotificationSettings(prevSettings => [...prevSettings, newSetting]);
+  };
+
+  const updateNotificationSetting = (updatedSetting: NotificationSetting) => {
+    setNotificationSettings(prevSettings =>
+      prevSettings.map(s => (s.id === updatedSetting.id ? updatedSetting : s))
+    );
+  };
+
+  const deleteNotificationSetting = (settingId: string) => {
+    setNotificationSettings(prevSettings => prevSettings.filter(s => s.id !== settingId));
+  };
+
   return (
     <AuthContext.Provider value={{ 
       currentUser, 
@@ -99,7 +123,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       addCategory,
       warehouses,
       addWarehouse,
-      updateWarehouse
+      updateWarehouse,
+      notificationSettings,
+      addNotificationSetting,
+      updateNotificationSetting,
+      deleteNotificationSetting,
     }}>
       {children}
     </AuthContext.Provider>

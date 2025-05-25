@@ -3,7 +3,7 @@
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus, Tag, Edit } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus, Tag, Edit, PlusCircle, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,13 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import type { User, UserRole, Warehouse, Category, NotificationSetting } from '@/lib/types';
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS } from '@/lib/constants';
+import type { User, UserRole, Warehouse, Category, NotificationSetting, NotificationChannel } from '@/lib/types';
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS } from '@/lib/constants'; // MOCK_NOTIFICATION_SETTINGS removed
 import { useToast } from '@/hooks/use-toast';
 import { NewUserModal } from "@/components/settings/new-user-modal";
 import { NewCategoryModal } from "@/components/settings/new-category-modal";
 import { NewEditWarehouseModal } from "@/components/settings/new-edit-warehouse-modal";
+import { NewEditNotificationSettingModal } from "@/components/settings/new-edit-notification-setting-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -172,13 +173,24 @@ const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; pe
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { currentUser, users: mockUsers, updateUserRole, categories, addCategory, warehouses, addWarehouse, updateWarehouse } = useAuth();
+  const { 
+    currentUser, users: mockUsers, updateUserRole, 
+    categories, addCategory, 
+    warehouses, addWarehouse, updateWarehouse,
+    notificationSettings, deleteNotificationSetting
+  } = useAuth();
+  const { toast } = useToast();
+  
   const [mounted, setMounted] = useState(false);
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false);
   const [isNewEditWarehouseModalOpen, setIsNewEditWarehouseModalOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
-  const { toast } = useToast();
+  
+  const [isNewEditNotificationModalOpen, setIsNewEditNotificationModalOpen] = useState(false);
+  const [editingNotificationSetting, setEditingNotificationSetting] = useState<NotificationSetting | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<NotificationSetting | null>(null);
+
 
   useEffect(() => {
     setMounted(true);
@@ -196,6 +208,17 @@ export default function SettingsPage() {
   const handleOpenNewEditWarehouseModal = (warehouse?: Warehouse) => {
     setEditingWarehouse(warehouse || null);
     setIsNewEditWarehouseModalOpen(true);
+  };
+
+  const handleOpenNewEditNotificationModal = (setting?: NotificationSetting) => {
+    setEditingNotificationSetting(setting || null);
+    setIsNewEditNotificationModalOpen(true);
+  };
+  
+  const handleDeleteNotification = (settingId: string) => {
+    deleteNotificationSetting(settingId);
+    toast({ title: "Notification Rule Deleted", description: `The notification rule has been deleted.`, variant: "destructive" });
+    setShowDeleteConfirm(null);
   };
 
 
@@ -472,84 +495,86 @@ export default function SettingsPage() {
 
         <TabsContent value="notifications">
           <Card>
-            <CardHeader>
-              <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>
-                Configure email, SMS, or in-app alerts for important inventory events, like low stock.
-              </CardDescription>
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+              <div>
+                <CardTitle>Notification Settings</CardTitle>
+                <CardDescription>
+                  {canManageNotifications
+                    ? "Configure email, SMS, or in-app alerts for important inventory events. (Simulated: Changes are not persistent)."
+                    : "View notification rules. You do not have permission to manage them."}
+                </CardDescription>
+              </div>
+              {canManageNotifications && (
+                <Button onClick={() => handleOpenNewEditNotificationModal()} className="mt-2 sm:mt-0">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Notification Rule
+                </Button>
+              )}
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="prose prose-sm max-w-none text-muted-foreground">
+            <CardContent className="space-y-4">
+               <div className="prose prose-sm max-w-none text-muted-foreground text-xs mb-4">
                 <p>
-                  In a complete Warehouse Management System, this section would allow administrators or warehouse managers to set up automated notifications. For example, you could define a rule such as: "When the quantity of 'Alpha-Core Processors' (Product ID: prod1) falls below 55 units, send an email alert to manager@example.com."
+                  In a complete system, this section allows administrators to set up automated notifications for events like low stock. Rules would define: product/category, inventory threshold, recipient(s), notification channel (Email, SMS, In-app), and rule status (enabled/disabled).
                 </p>
                 <p>
-                  These notifications are crucial for proactive inventory management, ensuring that you reorder stock before it runs out, preventing production delays or missed sales opportunities.
-                </p>
-                <p>
-                  Configuration options would typically include:
-                </p>
-                <ul>
-                  <li>Selecting the product or product category.</li>
-                  <li>Defining the inventory threshold (e.g., 50 units).</li>
-                  <li>Specifying the recipient(s) (e.g., email address, phone number for SMS, or a user role).</li>
-                  <li>Choosing the notification channel (Email, SMS, In-app).</li>
-                  <li>Enabling or disabling specific notification rules.</li>
-                </ul>
-                <p>
-                  The system's backend would then continuously monitor inventory levels. When a product's quantity is updated (due to a sale, material consumption, or manual adjustment) and crosses a defined threshold, the corresponding notification would be triggered.
+                  The backend would monitor inventory changes and trigger notifications based on these rules. The list below shows example configurations.
                 </p>
               </div>
 
-              <div className="border-t pt-6">
-                <h3 className="text-md font-semibold mb-2 flex items-center"><MessageSquareWarning className="mr-2 h-5 w-5 text-primary"/> Example Low Stock Alert Configurations (Read-only)</h3>
-                {MOCK_NOTIFICATION_SETTINGS.length > 0 ? (
-                  <div className="border rounded-md">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead>Threshold</TableHead>
-                          <TableHead>Recipient</TableHead>
-                          <TableHead>Channel</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {MOCK_NOTIFICATION_SETTINGS.map((setting: NotificationSetting) => (
-                          <TableRow key={setting.id}>
-                            <TableCell className="font-medium">{setting.productName || setting.productId}</TableCell>
-                            <TableCell>{setting.threshold}</TableCell>
-                            <TableCell className="text-xs">{setting.recipient}</TableCell>
-                            <TableCell><Badge variant="outline" className="capitalize">{setting.channel}</Badge></TableCell>
-                            <TableCell>
-                              <Badge variant={setting.isEnabled ? "default" : "secondary"} className={setting.isEnabled ? "bg-green-100 text-green-800" : ""}>
-                                {setting.isEnabled ? "Enabled" : "Disabled"}
-                              </Badge>
+              {notificationSettings.length > 0 ? (
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead className="text-center">Threshold</TableHead>
+                        <TableHead>Recipient</TableHead>
+                        <TableHead className="text-center">Channel</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        {canManageNotifications && <TableHead className="text-right">Actions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {notificationSettings.map((setting: NotificationSetting) => (
+                        <TableRow key={setting.id}>
+                          <TableCell className="font-medium">{setting.productName || setting.productId}</TableCell>
+                          <TableCell className="text-center">{setting.threshold}</TableCell>
+                          <TableCell className="text-xs">{setting.recipient}</TableCell>
+                          <TableCell className="text-center"><Badge variant="outline" className="capitalize">{setting.channel}</Badge></TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={setting.isEnabled ? "default" : "secondary"} className={setting.isEnabled ? "bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800/30 dark:text-slate-400"}>
+                              {setting.isEnabled ? "Enabled" : "Disabled"}
+                            </Badge>
+                          </TableCell>
+                          {canManageNotifications && (
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => handleOpenNewEditNotificationModal(setting)} className="mr-1">
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">Edit Rule</span>
+                              </Button>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(setting)} className="text-destructive hover:text-destructive/90">
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete Rule</span>
+                                </Button>
+                              </AlertDialogTrigger>
                             </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-4">No mock notification settings configured yet.</p>
-                )}
-                {canManageNotifications ? (
-                  <Button 
-                    variant="outline" 
-                    className="mt-4" 
-                    onClick={() => toast({
-                      title: "Simulated Action: Configure Alerts", 
-                      description: "In a real system, this would open an interface to add, edit, or delete notification rules for inventory thresholds, recipients, and channels."
-                    })}
-                  >
-                    Configure Alerts (Simulated)
-                  </Button>
-                ) : (
-                  <p className="text-sm text-muted-foreground mt-4">You do not have permission to configure notifications.</p>
-                )}
-              </div>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No notification rules configured yet.
+                  {canManageNotifications && " Click 'Add Notification Rule' to create one."}
+                </p>
+              )}
+              {!canManageNotifications && notificationSettings.length > 0 && (
+                <p className="text-sm text-muted-foreground text-center pt-4">
+                  Contact an Administrator to manage notification rules.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -589,6 +614,35 @@ export default function SettingsPage() {
         }}
         existingWarehouse={editingWarehouse}
       />
+      <NewEditNotificationSettingModal
+        isOpen={isNewEditNotificationModalOpen}
+        onClose={() => {
+            setIsNewEditNotificationModalOpen(false);
+            setEditingNotificationSetting(null);
+        }}
+        existingSetting={editingNotificationSetting}
+      />
+      {showDeleteConfirm && (
+        <AlertDialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+                <AlertDialogDescription>
+                Are you sure you want to delete the notification rule for product <span className="font-semibold">{showDeleteConfirm.productName || showDeleteConfirm.productId}</span>? This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setShowDeleteConfirm(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                onClick={() => handleDeleteNotification(showDeleteConfirm.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                Yes, Delete Rule
+                </AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

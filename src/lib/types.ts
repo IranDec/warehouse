@@ -102,13 +102,18 @@ export interface MaterialRequest {
   actionDate?: string; // ISO date string of approval/rejection
 }
 
-// Notification System Types (Placeholder for now)
+// Notification System Types
+export type NotificationChannel = 'email' | 'sms' | 'in-app';
+export const NOTIFICATION_CHANNELS: NotificationChannel[] = ['email', 'sms', 'in-app'];
+
+
 export interface NotificationSetting {
   id: string;
   productId: string;
   productName?: string;
   threshold: number;
   recipient: string; // e.g., email address or user ID
-  channel: 'email' | 'sms' | 'in-app'; // Example channels
+  channel: NotificationChannel; 
   isEnabled: boolean;
 }
+
