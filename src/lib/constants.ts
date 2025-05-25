@@ -36,7 +36,7 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod1',
     name: 'Alpha-Core Processor',
     sku: 'AC-P-001',
-    category: 'Electronics',
+    category: 'Electronics', // Can also be a Raw Material for other Finished Goods
     quantity: 150,
     reorderLevel: 50,
     warehouseId: 'wh1',
@@ -49,7 +49,7 @@ export const MOCK_PRODUCTS: Product[] = [
     id: 'prod2',
     name: 'Beta-Series RAM Module (16GB)',
     sku: 'BS-RM-016',
-    category: 'Electronics',
+    category: 'Electronics', // Can also be a Raw Material
     quantity: 35,
     reorderLevel: 25,
     warehouseId: 'wh1',
@@ -86,8 +86,8 @@ export const MOCK_PRODUCTS: Product[] = [
   },
   {
     id: 'prod5',
-    name: 'Standard Assembled Widget', // Was Epsilon Finished Widget
-    sku: 'SAW-001', // Was EFW-001
+    name: 'Standard Assembled Widget',
+    sku: 'SAW-001',
     category: 'Finished Goods',
     quantity: 500,
     reorderLevel: 100,
@@ -202,7 +202,7 @@ export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
   },
   {
     id: 'txn5',
-    productId: 'prod5', // Standard Assembled Widget
+    productId: 'prod5',
     productName: 'Standard Assembled Widget',
     type: 'Inflow',
     quantityChange: 200,
@@ -324,16 +324,16 @@ export const MOCK_MATERIAL_REQUESTS: MaterialRequest[] = [
 
 export const MOCK_BOM_CONFIGURATIONS: BillOfMaterial[] = [
   {
-    productId: 'prod5', // Standard Assembled Widget
+    productId: 'prod5', 
     productName: 'Standard Assembled Widget',
     items: [
-      { rawMaterialId: 'prod7', rawMaterialName: 'M3 Screw Pack (100 units)', quantityNeeded: 5 }, // Needs 5 screws
-      { rawMaterialId: 'prod8', rawMaterialName: 'Standard Plastic Casing', quantityNeeded: 1 }, // Needs 1 casing
-      { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 1 } // Needs 1 processor
+      { rawMaterialId: 'prod7', rawMaterialName: 'M3 Screw Pack (100 units)', quantityNeeded: 5 }, 
+      { rawMaterialId: 'prod8', rawMaterialName: 'Standard Plastic Casing', quantityNeeded: 1 }, 
+      { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 1 } 
     ]
   },
   {
-    productId: 'prod9', // Advanced Gadget X
+    productId: 'prod9', 
     productName: 'Advanced Gadget X',
     items: [
       { rawMaterialId: 'prod1', rawMaterialName: 'Alpha-Core Processor', quantityNeeded: 2 },
@@ -347,5 +347,8 @@ export const MOCK_BOM_CONFIGURATIONS: BillOfMaterial[] = [
 export const MOCK_NOTIFICATION_SETTINGS: NotificationSetting[] = [
     { id: 'notif1', productId: 'prod1', productName: 'Alpha-Core Processor', threshold: 55, recipient: 'manager@example.com', channel: 'email', isEnabled: true },
     { id: 'notif2', productId: 'prod2', productName: 'Beta-Series RAM Module (16GB)', threshold: 30, recipient: 'admin@example.com', channel: 'in-app', isEnabled: true },
-    { id: 'notif3', productId: 'prod7', productName: 'M3 Screw Pack (100 units)', threshold: 250, recipient: 'supervisor_hw@example.com', channel: 'email', isEnabled: false },
+    { id: 'notif3', productId: 'prod3', productName: 'Gamma Fabric Roll (Blue)', threshold: 110, recipient: 'textile_supervisor@example.com', channel: 'sms', isEnabled: true },
+    { id: 'notif4', productId: 'prod7', productName: 'M3 Screw Pack (100 units)', threshold: 250, recipient: 'hardware_manager@example.com', channel: 'email', isEnabled: false },
+    { id: 'notif5', productId: 'prod6', productName: 'Organic Apples', threshold: 75, recipient: 'coldstorage_lead@example.com', channel: 'in-app', isEnabled: true },
 ];
+

@@ -1,3 +1,4 @@
+
 // src/app/settings/page.tsx
 "use client";
 
@@ -14,11 +15,11 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import type { User, UserRole, Warehouse, Category } from "@/lib/types";
+import type { User, UserRole, Warehouse, Category, NotificationSetting } from "@/lib/types";
 import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_NOTIFICATION_SETTINGS, MOCK_WAREHOUSES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { NewUserModal } from "@/components/settings/new-user-modal";
-import { NewCategoryModal } from "@/components/settings/new-category-modal"; // Import NewCategoryModal
+import { NewCategoryModal } from "@/components/settings/new-category-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 
 interface UserRoleEditorProps {
@@ -38,7 +40,7 @@ interface UserRoleEditorProps {
   onRoleChange: (userId: string, newRole: UserRole, newCategoryAccess?: string) => void;
   currentUserRole: UserRole | undefined;
   toast: ReturnType<typeof useToast>['toast'];
-  categories: Category[]; // Add categories prop
+  categories: Category[];
 }
 
 function UserRoleEditor({ user, onRoleChange, currentUserRole, toast, categories }: UserRoleEditorProps) {
@@ -137,7 +139,7 @@ export default function SettingsPage() {
   const { currentUser, users: mockUsers, updateUserRole, categories, addCategory } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
-  const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false); // State for category modal
+  const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -151,6 +153,7 @@ export default function SettingsPage() {
   const canManageUsers = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageWarehouses = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
+  const canManageNotifications = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
 
 
   return (
@@ -387,32 +390,81 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>Configure email, SMS, or in-app alerts for important events.</CardDescription>
+              <CardDescription>
+                Configure email, SMS, or in-app alerts for important inventory events, like low stock.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-               <div className="text-center text-muted-foreground py-6">
-                <Bell className="mx-auto h-10 w-10 mb-3" />
-                <p className="text-sm">Set up alerts for events like low stock levels reaching a predefined minimum threshold.</p>
-                <p className="text-sm mt-1">Notifications can be customized per product or category and sent to relevant managers or supervisors.</p>
+              <div className="prose prose-sm max-w-none text-muted-foreground">
+                <p>
+                  In a complete Warehouse Management System, this section would allow administrators or warehouse managers to set up automated notifications. For example, you could define a rule such as: "When the quantity of 'Alpha-Core Processors' (Product ID: prod1) falls below 55 units, send an email alert to manager@example.com."
+                </p>
+                <p>
+                  These notifications are crucial for proactive inventory management, ensuring that you reorder stock before it runs out, preventing production delays or missed sales opportunities.
+                </p>
+                <p>
+                  Configuration options would typically include:
+                </p>
+                <ul>
+                  <li>Selecting the product or product category.</li>
+                  <li>Defining the inventory threshold (e.g., 50 units).</li>
+                  <li>Specifying the recipient(s) (e.g., email address, phone number for SMS, or a user role).</li>
+                  <li>Choosing the notification channel (Email, SMS, In-app).</li>
+                  <li>Enabling or disabling specific notification rules.</li>
+                </ul>
+                <p>
+                  The system's backend would then continuously monitor inventory levels. When a product's quantity is updated (due to a sale, material consumption, or manual adjustment) and crosses a defined threshold, the corresponding notification would be triggered.
+                </p>
               </div>
-               <div className="border-t pt-6">
-                <h3 className="text-md font-semibold mb-2 flex items-center"><MessageSquareWarning className="mr-2 h-5 w-5 text-primary"/>Low Stock Alert Configuration (Examples)</h3>
-                 {MOCK_NOTIFICATION_SETTINGS.filter(s => s.channel !== 'in-app').length > 0 ? (
-                  <div className="space-y-2 text-xs border rounded-md p-3 bg-muted/20 max-h-60 overflow-y-auto">
-                    {MOCK_NOTIFICATION_SETTINGS.filter(s => s.channel !== 'in-app').map(setting => (
-                      <div key={setting.id} className="p-2 border-b last:border-b-0">
-                        <p><span className="font-semibold text-foreground">Product:</span> {setting.productName || setting.productId}</p>
-                        <p><span className="font-semibold text-foreground">Threshold:</span> {setting.threshold}</p>
-                        <p><span className="font-semibold text-foreground">Recipient:</span> {setting.recipient}</p>
-                        <p><span className="font-semibold text-foreground">Channel:</span> {setting.channel}</p>
-                        <p><span className="font-semibold text-foreground">Status:</span> {setting.isEnabled ? "Enabled" : "Disabled"}</p>
-                      </div>
-                    ))}
+
+              <div className="border-t pt-6">
+                <h3 className="text-md font-semibold mb-2 flex items-center"><MessageSquareWarning className="mr-2 h-5 w-5 text-primary"/> Example Low Stock Alert Configurations (Read-only)</h3>
+                {MOCK_NOTIFICATION_SETTINGS.length > 0 ? (
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Threshold</TableHead>
+                          <TableHead>Recipient</TableHead>
+                          <TableHead>Channel</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {MOCK_NOTIFICATION_SETTINGS.map((setting: NotificationSetting) => (
+                          <TableRow key={setting.id}>
+                            <TableCell className="font-medium">{setting.productName || setting.productId}</TableCell>
+                            <TableCell>{setting.threshold}</TableCell>
+                            <TableCell className="text-xs">{setting.recipient}</TableCell>
+                            <TableCell><Badge variant="outline" className="capitalize">{setting.channel}</Badge></TableCell>
+                            <TableCell>
+                              <Badge variant={setting.isEnabled ? "default" : "secondary"} className={setting.isEnabled ? "bg-green-100 text-green-800" : ""}>
+                                {setting.isEnabled ? "Enabled" : "Disabled"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No mock Email/SMS notification settings configured yet.</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">No mock notification settings configured yet.</p>
                 )}
-                <Button variant="outline" className="mt-4" onClick={() => toast({title: "Simulated Action", description: "Configure Alerts functionality."})}>Configure Alerts</Button>
+                {canManageNotifications ? (
+                  <Button 
+                    variant="outline" 
+                    className="mt-4" 
+                    onClick={() => toast({
+                      title: "Simulated Action: Configure Alerts", 
+                      description: "In a real system, this would open an interface to add, edit, or delete notification rules for inventory thresholds, recipients, and channels."
+                    })}
+                  >
+                    Configure Alerts (Simulated)
+                  </Button>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-4">You do not have permission to configure notifications.</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -448,3 +500,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+
