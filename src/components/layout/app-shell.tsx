@@ -45,13 +45,18 @@ import type { MaterialRequest } from '@/lib/types';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isMobile, openMobile } = useSidebar(); 
+  const { isMobile, openMobile, setOpenMobile, state: sidebarState } = useSidebar();
   const { currentUser, setCurrentUserById, users: availableUsers, addMaterialRequest } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
 
   const [clientPageTitle, setClientPageTitle] = useState('');
   const [isQuickRequestModalOpen, setIsQuickRequestModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const calculatePageTitle = useCallback(() => {
     for (const item of NAV_ITEMS) {
@@ -64,8 +69,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
     const segments = pathname.split('/').filter(Boolean);
-    return segments.length > 0 
-      ? segments[segments.length - 1].charAt(0).toUpperCase() + segments[segments.length - 1].slice(1) 
+    return segments.length > 0
+      ? segments[segments.length - 1].charAt(0).toUpperCase() + segments[segments.length - 1].slice(1)
       : APP_NAME;
   }, [pathname]);
 
@@ -76,8 +81,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const handleQuickMaterialRequestSubmit = (
     data: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>
   ) => {
-    addMaterialRequest(data); // This will use currentUser from AuthContext
-    setIsQuickRequestModalOpen(false);
+    if (currentUser) { // Ensure currentUser is not null
+      addMaterialRequest(data);
+      setIsQuickRequestModalOpen(false);
+    } else {
+      toast({
+        title: "Error",
+        description: "No user logged in to submit request.",
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -110,9 +123,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </SidebarMenu>
         </SidebarContent>
-        {/* Footer content moved to header dropdown */}
-        <SidebarFooter className="p-2 border-t min-h-[56px]"> 
-            {/* Placeholder to maintain layout if needed, or can be removed if header dropdown is sufficient */}
+        <SidebarFooter className="p-2 border-t min-h-[56px]">
+            {/* Footer content moved to header dropdown */}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
@@ -136,18 +148,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <span className="sr-only">New Material Request</span>
                 </Button>
               )}
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                title={mounted ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle theme'}
               >
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {mounted ? (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />) : <Moon className="h-5 w-5 opacity-50" /> }
                 <span className="sr-only">Toggle theme</span>
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => toast({ title: "Notifications", description: "Notifications panel would open here (Not Implemented)." })}
                 title="Notifications"
               >
@@ -178,8 +190,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent>
-                        <DropdownMenuRadioGroup 
-                          value={currentUser?.id} 
+                        <DropdownMenuRadioGroup
+                          value={currentUser?.id}
                           onValueChange={(value) => setCurrentUserById(value)}
                         >
                           {availableUsers.map(user => (
