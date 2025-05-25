@@ -3,7 +3,7 @@
 "use client";
 
 import { PageHeader } from "@/components/common/page-header";
-import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus, Tag, Edit, PlusCircle, Trash2 } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Users, Database, Palette, Globe, Edit2, FileJson, MessageSquareWarning, Warehouse as WarehouseIcon, UserPlus, Tag, Edit, PlusCircle, Trash2, Link2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -192,6 +192,8 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<NotificationSetting | null>(null);
   
   const [appName, setAppName] = useState("Warehouse Edge");
+  const [cmsApiKey, setCmsApiKey] = useState("");
+  const [cmsStoreUrl, setCmsStoreUrl] = useState("");
 
 
   useEffect(() => {
@@ -204,6 +206,21 @@ export default function SettingsPage() {
         description: `Application name set to "${appName}". Theme preference is managed separately.`
     });
   };
+  
+  const handleConnectCms = () => {
+    if (!cmsApiKey || !cmsStoreUrl) {
+        toast({ title: "CMS Connection Failed", description: "API Key and Store URL are required.", variant: "destructive" });
+        return;
+    }
+    toast({ title: "CMS Connection Simulated", description: `Attempting to connect to ${cmsStoreUrl} with provided API key.`});
+    // In a real app, this would trigger an API call to the backend
+  };
+
+  const handleSyncCmsProducts = () => {
+    toast({ title: "CMS Product Sync Simulated", description: "Fetching products from connected CMS... (This is a simulation)"});
+    // In a real app, this would trigger a backend process
+  };
+
 
   if (!mounted) {
     return null;
@@ -213,6 +230,7 @@ export default function SettingsPage() {
   const canManageWarehouses = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageNotifications = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
+  const canManageIntegrations = currentUser?.role === 'Admin';
 
   const handleOpenNewEditWarehouseModal = (warehouse?: Warehouse) => {
     setEditingWarehouse(warehouse || null);
@@ -459,23 +477,45 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>CMS Integrations &amp; Bill of Materials (BOM)</CardTitle>
-              <CardDescription>Connect with e-commerce platforms and manage product compositions.</CardDescription>
+              <CardDescription>Connect with e-commerce platforms (e.g., PrestaShop, WooCommerce, Shopify) and manage product compositions for automated inventory deduction.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="text-center text-muted-foreground py-6">
-                <Database className="mx-auto h-10 w-10 mb-3" />
-                <p className="text-sm">This section would allow connecting to CMS platforms (e.g., WooCommerce, Shopify) to sync product data and sales orders.</p>
-                <p className="text-sm mt-1">Upon each sale in the CMS, the WMS would automatically deduct associated raw materials based on the defined Bill of Materials.</p>
+              <div className="p-4 border rounded-lg bg-muted/20">
+                <h3 className="text-md font-semibold mb-2 flex items-center"><Link2 className="mr-2 h-5 w-5 text-primary"/> Connect to CMS (e.g., PrestaShop)</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Enter your CMS API credentials to enable product synchronization and automated inventory updates based on sales.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="cmsStoreUrl">Store URL</Label>
+                    <Input id="cmsStoreUrl" value={cmsStoreUrl} onChange={(e)=> setCmsStoreUrl(e.target.value)} placeholder="e.g., https://yourstore.prestashop.com" disabled={!canManageIntegrations}/>
+                  </div>
+                  <div>
+                    <Label htmlFor="cmsApiKey">API Key</Label>
+                    <Input id="cmsApiKey" type="password" value={cmsApiKey} onChange={(e)=> setCmsApiKey(e.target.value)} placeholder="Enter your CMS API Key" disabled={!canManageIntegrations}/>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleConnectCms} disabled={!canManageIntegrations || (!cmsStoreUrl || !cmsApiKey)}>
+                      Connect CMS (Simulated)
+                    </Button>
+                    <Button variant="outline" onClick={handleSyncCmsProducts} disabled={!canManageIntegrations}>
+                      Sync Products from CMS (Simulated)
+                    </Button>
+                  </div>
+                  {!canManageIntegrations && <p className="text-xs text-destructive pt-2">You do not have permission to manage CMS integrations.</p>}
+                </div>
                 <div className="mt-4 flex justify-center gap-4">
+                  <Image src="https://placehold.co/100x40.png?text=PrestaShop" alt="PrestaShop" width={100} height={40} data-ai-hint="logo brand" />
                   <Image src="https://placehold.co/100x40.png?text=WooCommerce" alt="WooCommerce" width={100} height={40} data-ai-hint="logo brand" />
                   <Image src="https://placehold.co/100x40.png?text=Shopify" alt="Shopify" width={100} height={40} data-ai-hint="logo brand" />
                 </div>
-                <Button variant="outline" className="mt-4" onClick={() => toast({title: "Simulated Action", description: "Add Integration functionality."})}>Add CMS Integration</Button>
               </div>
+
               <div className="border-t pt-6">
                 <h3 className="text-md font-semibold mb-2 flex items-center"><FileJson className="mr-2 h-5 w-5 text-primary"/> Bill of Materials (BOM) Management</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Admins would define the raw materials and quantities needed for each finished product here. This is crucial for automatic deduction from inventory upon CMS sales.
+                  After syncing products from your CMS, define the raw materials and quantities from your WMS inventory needed to produce each CMS product. This is crucial for automatic deduction from inventory upon CMS sales.
+                  <br/> (Currently showing mock BOM configurations. Full BOM management requires backend development.)
                 </p>
                 {MOCK_BOM_CONFIGURATIONS.length > 0 ? (
                   <div className="space-y-2 text-xs border rounded-md p-3 bg-muted/20 max-h-60 overflow-y-auto">
@@ -496,7 +536,9 @@ export default function SettingsPage() {
                 ) : (
                   <p className="text-xs text-muted-foreground">No mock BOMs configured yet.</p>
                 )}
-                 <Button variant="outline" size="sm" className="mt-3" onClick={() => toast({title: "Simulated Action", description: "Manage BOMs functionality."})}>Manage BOMs</Button>
+                 <Button variant="outline" size="sm" className="mt-3" onClick={() => toast({title: "Simulated Action", description: "Manage BOMs functionality would open a dedicated interface."})} disabled={!canManageIntegrations}>
+                    Manage BOMs (Simulated)
+                </Button>
               </div>
             </CardContent>
           </Card>
