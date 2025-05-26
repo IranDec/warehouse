@@ -15,13 +15,14 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import type { User, UserRole, Warehouse, Category, NotificationSetting, NotificationChannel, BillOfMaterial } from '@/lib/types';
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_PRODUCTS } from '@/lib/constants';
+import type { User, UserRole, Warehouse, Category, NotificationSetting, BillOfMaterial, BillOfMaterialItem } from '@/lib/types';
+import { USER_ROLES } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { NewUserModal } from "@/components/settings/new-user-modal";
 import { NewCategoryModal } from "@/components/settings/new-category-modal";
 import { NewEditWarehouseModal } from "@/components/settings/new-edit-warehouse-modal";
 import { NewEditNotificationSettingModal } from "@/components/settings/new-edit-notification-setting-modal";
+import { NewEditBomModal } from "@/components/settings/new-edit-bom-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -179,7 +180,8 @@ export default function SettingsPage() {
     currentUser, users: mockUsers, updateUserRole,
     categories, addCategory,
     warehouses, addWarehouse, updateWarehouse,
-    notificationSettings, deleteNotificationSetting, addNotificationSetting, updateNotificationSetting
+    notificationSettings, deleteNotificationSetting, addNotificationSetting, updateNotificationSetting,
+    products: contextProducts, bomConfigurations, addBomConfiguration, updateBomConfiguration, deleteBomConfiguration
   } = useAuth();
   const { toast } = useToast();
 
@@ -191,7 +193,12 @@ export default function SettingsPage() {
 
   const [isNewEditNotificationModalOpen, setIsNewEditNotificationModalOpen] = useState(false);
   const [editingNotificationSetting, setEditingNotificationSetting] = useState<NotificationSetting | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<NotificationSetting | null>(null);
+  const [showDeleteConfirmNotif, setShowDeleteConfirmNotif] = useState<NotificationSetting | null>(null);
+  
+  const [isNewEditBomModalOpen, setIsNewEditBomModalOpen] = useState(false);
+  const [editingBom, setEditingBom] = useState<BillOfMaterial | null>(null);
+  const [showDeleteConfirmBom, setShowDeleteConfirmBom] = useState<BillOfMaterial | null>(null);
+
 
   const [appName, setAppName] = useState("Warehouse Edge");
   const [cmsApiKey, setCmsApiKey] = useState("");
@@ -215,21 +222,10 @@ export default function SettingsPage() {
         return;
     }
     toast({ title: "CMS Connection Simulated", description: `Attempting to connect to ${cmsStoreUrl} with provided API key.`});
-    // In a real app, this would trigger an API call to the backend
   };
 
   const handleSyncCmsProducts = () => {
     toast({ title: "CMS Product Sync Simulated", description: "Fetching products from connected CMS... (This is a simulation)"});
-    // In a real app, this would trigger a backend process
-  };
-
-  const handleManageBOMs = (action: 'add' | 'edit', bomId?: string) => {
-    const actionText = action === 'add' ? 'adding a new' : `editing existing (ID: ${bomId || 'N/A'})`;
-    toast({
-      title: `Simulated BOM Management Action`,
-      description: `In a real system, this would open a dedicated interface for ${actionText} Bill of Materials configuration. You would select a finished good, then add its constituent raw materials and their required quantities. Changes would be saved to the database.`,
-      duration: 12000
-    });
   };
 
 
@@ -241,8 +237,8 @@ export default function SettingsPage() {
   const canManageWarehouses = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageNotifications = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
-  const canManageIntegrations = currentUser?.role === 'Admin'; // Admin for CMS connection
-  const canManageBOMs = currentUser?.role === 'Admin'; // Admin for defining BOMs
+  const canManageIntegrations = currentUser?.role === 'Admin'; 
+  const canManageBOMs = currentUser?.role === 'Admin';
 
   const handleOpenNewEditWarehouseModal = (warehouse?: Warehouse) => {
     setEditingWarehouse(warehouse || null);
@@ -257,7 +253,19 @@ export default function SettingsPage() {
   const handleDeleteNotification = (settingId: string) => {
     deleteNotificationSetting(settingId);
     toast({ title: "Notification Rule Deleted", description: `The notification rule has been deleted.`, variant: "destructive" });
-    setShowDeleteConfirm(null);
+    setShowDeleteConfirmNotif(null);
+  };
+
+  const handleOpenNewEditBomModal = (bom?: BillOfMaterial) => {
+    setEditingBom(bom || null);
+    setIsNewEditBomModalOpen(true);
+  };
+
+  const handleDeleteBom = (productId: string) => {
+    deleteBomConfiguration(productId);
+    const productName = contextProducts.find(p => p.id === productId)?.name || productId;
+    toast({ title: "BOM Deleted", description: `Bill of Materials for ${productName} has been deleted.`, variant: "destructive" });
+    setShowDeleteConfirmBom(null);
   };
 
 
@@ -522,67 +530,74 @@ export default function SettingsPage() {
                   {!canManageIntegrations && <p className="text-xs text-destructive pt-2">You do not have permission to manage CMS integrations.</p>}
                 </div>
                 <div className="mt-4 flex justify-center gap-4">
-                  <Image src="https://placehold.co/100x40.png?text=PrestaShop" alt="PrestaShop" width={100} height={40} data-ai-hint="logo brand" />
-                  <Image src="https://placehold.co/100x40.png?text=WooCommerce" alt="WooCommerce" width={100} height={40} data-ai-hint="logo brand" />
-                  <Image src="https://placehold.co/100x40.png?text=Shopify" alt="Shopify" width={100} height={40} data-ai-hint="logo brand" />
+                  <Image src="https://placehold.co/100x40.png?text=PrestaShop" alt="PrestaShop" width={100} height={40} data-ai-hint="logo brand"/>
+                  <Image src="https://placehold.co/100x40.png?text=WooCommerce" alt="WooCommerce" width={100} height={40} data-ai-hint="logo brand"/>
+                  <Image src="https://placehold.co/100x40.png?text=Shopify" alt="Shopify" width={100} height={40} data-ai-hint="logo brand"/>
                 </div>
               </div>
 
               <div className="border-t pt-6">
                 <div className="flex justify-between items-center mb-3">
                     <h3 className="text-md font-semibold flex items-center"><FileJson className="mr-2 h-5 w-5 text-primary"/> Bill of Materials (BOM) Management</h3>
-                    {canManageBOMs && ( // Use canManageBOMs here
-                        <Button variant="outline" size="sm" onClick={() => handleManageBOMs('add')}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add New BOM (Simulated)
+                    {canManageBOMs && (
+                        <Button variant="outline" size="sm" onClick={() => handleOpenNewEditBomModal()}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add New BOM
                         </Button>
                     )}
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Define the raw materials and quantities needed to produce each finished good. This is crucial for automatic inventory deduction upon CMS sales.
+                  Define the raw materials and quantities needed to produce each finished good.
                 </p>
-                {MOCK_BOM_CONFIGURATIONS.length > 0 ? (
-                  <div className="space-y-3">
-                    {MOCK_BOM_CONFIGURATIONS.map((bom, bomIndex) => {
-                      const finishedGood = MOCK_PRODUCTS.find(p => p.id === bom.productId);
-                      return (
-                        <Card key={bom.productId} className="shadow-md bg-card">
-                          <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4 px-4">
-                            <CardTitle className="text-base">
-                              BOM for: <span className="font-bold text-primary">{finishedGood?.name || bom.productName || bom.productId}</span>
-                            </CardTitle>
-                            {canManageBOMs && ( // Use canManageBOMs here
-                              <Button variant="ghost" size="sm" onClick={() => handleManageBOMs('edit', bom.productId)}>
-                                <Edit className="h-4 w-4 mr-1" /> Edit
-                              </Button>
-                            )}
-                          </CardHeader>
-                          <CardContent className="px-4 pb-4">
-                            <p className="text-xs text-muted-foreground mb-2">Constituent Raw Materials:</p>
-                            {bom.items.length > 0 ? (
-                              <ul className="list-disc list-inside pl-4 space-y-1 text-sm text-card-foreground">
-                                {bom.items.map((item, itemIndex) => {
-                                  const rawMaterial = MOCK_PRODUCTS.find(p => p.id === item.rawMaterialId);
-                                  return (
-                                    <li key={`${bom.productId}-${item.rawMaterialId}-${itemIndex}`}>
-                                      {item.quantityNeeded} x <span className="font-medium">{rawMaterial?.name || item.rawMaterialName || item.rawMaterialId}</span> (SKU: {rawMaterial?.sku || 'N/A'})
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">No raw materials defined for this BOM.</p>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                {bomConfigurations.length > 0 ? (
+                   <div className="border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead>Finished Good</TableHead>
+                            <TableHead>Raw Materials (Qty)</TableHead>
+                            {canManageBOMs && <TableHead className="text-right">Actions</TableHead>}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {bomConfigurations.map((bom) => {
+                                const finishedGood = contextProducts.find(p => p.id === bom.productId);
+                                return (
+                                <TableRow key={bom.productId}>
+                                    <TableCell className="font-medium">{finishedGood?.name || bom.productName || bom.productId}</TableCell>
+                                    <TableCell className="text-xs">
+                                    {bom.items.map((item, index) => {
+                                        const rawMaterial = contextProducts.find(p => p.id === item.rawMaterialId);
+                                        return (
+                                        <span key={index} className="block">
+                                            {rawMaterial?.name || item.rawMaterialName || item.rawMaterialId} ({item.quantityNeeded})
+                                        </span>
+                                        );
+                                    })}
+                                    </TableCell>
+                                    {canManageBOMs && (
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleOpenNewEditBomModal(bom)} className="mr-1">
+                                        <Edit className="h-4 w-4" />
+                                        <span className="sr-only">Edit BOM</span>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirmBom(bom)} className="text-destructive hover:text-destructive/90">
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only">Delete BOM</span>
+                                        </Button>
+                                    </TableCell>
+                                    )}
+                                </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">No BOM configurations defined yet.
                     {canManageBOMs && " Click 'Add New BOM' to create one."}
                   </p>
                 )}
-                 {!canManageBOMs && MOCK_BOM_CONFIGURATIONS.length > 0 && (
+                 {!canManageBOMs && bomConfigurations.length > 0 && (
                    <p className="text-xs text-destructive pt-2 text-center">You do not have permission to manage BOM configurations.</p>
                  )}
               </div>
@@ -648,7 +663,7 @@ export default function SettingsPage() {
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Edit Rule</span>
                               </Button>
-                                <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(setting)} className="text-destructive hover:text-destructive/90">
+                                <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirmNotif(setting)} className="text-destructive hover:text-destructive/90">
                                   <Trash2 className="h-4 w-4" />
                                   <span className="sr-only">Delete Rule</span>
                                 </Button>
@@ -721,19 +736,19 @@ export default function SettingsPage() {
         addNotificationSetting={addNotificationSetting}
         updateNotificationSetting={updateNotificationSetting}
       />
-      {showDeleteConfirm && (
-        <AlertDialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
+      {showDeleteConfirmNotif && (
+        <AlertDialog open={!!showDeleteConfirmNotif} onOpenChange={() => setShowDeleteConfirmNotif(null)}>
             <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
                 <AlertDialogDescription>
-                Are you sure you want to delete the notification rule for product <span className="font-semibold">{showDeleteConfirm.productName || showDeleteConfirm.productId}</span>? This action cannot be undone.
+                Are you sure you want to delete the notification rule for product <span className="font-semibold">{showDeleteConfirmNotif.productName || showDeleteConfirmNotif.productId}</span>? This action cannot be undone.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setShowDeleteConfirm(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setShowDeleteConfirmNotif(null)}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                onClick={() => handleDeleteNotification(showDeleteConfirm.id)}
+                onClick={() => handleDeleteNotification(showDeleteConfirmNotif.id)}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                 Yes, Delete Rule
@@ -742,6 +757,38 @@ export default function SettingsPage() {
             </AlertDialogContent>
         </AlertDialog>
       )}
+      {showDeleteConfirmBom && (
+        <AlertDialog open={!!showDeleteConfirmBom} onOpenChange={() => setShowDeleteConfirmBom(null)}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Confirm BOM Deletion</AlertDialogTitle>
+                <AlertDialogDescription>
+                Are you sure you want to delete the Bill of Materials for product <span className="font-semibold">{contextProducts.find(p => p.id === showDeleteConfirmBom!.productId)?.name || showDeleteConfirmBom!.productId}</span>? This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setShowDeleteConfirmBom(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                onClick={() => handleDeleteBom(showDeleteConfirmBom!.productId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                Yes, Delete BOM
+                </AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
+       <NewEditBomModal
+        isOpen={isNewEditBomModalOpen}
+        onClose={() => {
+          setIsNewEditBomModalOpen(false);
+          setEditingBom(null);
+        }}
+        existingBom={editingBom}
+        allProducts={contextProducts}
+      />
     </div>
   );
 }
+
+    

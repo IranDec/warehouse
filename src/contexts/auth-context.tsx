@@ -2,8 +2,8 @@
 // src/contexts/auth-context.tsx
 "use client";
 
-import type { User, UserRole, Category, Warehouse, NotificationSetting, MaterialRequest, RequestedItem, Product, InventoryTransaction } from '@/lib/types';
-import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES, MOCK_NOTIFICATION_SETTINGS, MOCK_MATERIAL_REQUESTS, MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS } from '@/lib/constants';
+import type { User, UserRole, Category, Warehouse, NotificationSetting, MaterialRequest, RequestedItem, Product, InventoryTransaction, BillOfMaterial } from '@/lib/types';
+import { MOCK_USERS, DEFAULT_CURRENT_USER_ID, MOCK_CATEGORIES, MOCK_WAREHOUSES, MOCK_NOTIFICATION_SETTINGS, MOCK_MATERIAL_REQUESTS, MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS } from '@/lib/constants';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,7 +18,7 @@ interface AuthContextType {
   addCategory: (categoryData: Omit<Category, 'id'>) => void;
   
   warehouses: Warehouse[];
-  addWarehouse: (warehouseData: Omit<Warehouse, 'id'>) => void;
+  addWarehouse: (warehouseData: Omit<Warehouse, 'id' | 'managedCategoryIds'> & { managedCategoryIds?: string[] }) => void;
   updateWarehouse: (warehouseData: Warehouse) => void;
   
   notificationSettings: NotificationSetting[];
@@ -35,6 +35,11 @@ interface AuthContextType {
 
   inventoryTransactions: InventoryTransaction[];
   setInventoryTransactions: React.Dispatch<React.SetStateAction<InventoryTransaction[]>>;
+
+  bomConfigurations: BillOfMaterial[];
+  addBomConfiguration: (bom: BillOfMaterial) => void;
+  updateBomConfiguration: (bom: BillOfMaterial) => void;
+  deleteBomConfiguration: (productId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,8 +51,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>(MOCK_WAREHOUSES);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSetting[]>(MOCK_NOTIFICATION_SETTINGS);
   const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS);
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS); // Added products state
-  const [inventoryTransactions, setInventoryTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS); // Added transactions state
+  const [productsData, setProductsData] = useState<Product[]>(MOCK_PRODUCTS); 
+  const [inventoryTransactionsData, setInventoryTransactionsData] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
+  const [bomConfigurations, setBomConfigurations] = useState<BillOfMaterial[]>(MOCK_BOM_CONFIGURATIONS);
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     return users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null;
@@ -98,10 +104,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setCategories(prevCategories => [...prevCategories, newCategory]);
   };
 
-  const addWarehouse = (warehouseData: Omit<Warehouse, 'id'>) => {
+  const addWarehouse = (warehouseData: Omit<Warehouse, 'id' | 'managedCategoryIds'> & { managedCategoryIds?: string[] }) => {
     const newWarehouse: Warehouse = {
       ...warehouseData,
       id: `wh${Date.now()}`,
+      managedCategoryIds: warehouseData.managedCategoryIds || [],
     };
     setWarehouses(prevWarehouses => [...prevWarehouses, newWarehouse]);
   };
@@ -150,9 +157,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateMaterialRequest = (updatedRequest: MaterialRequest) => {
     setMaterialRequests(prev => prev.map(req => (req.id === updatedRequest.id ? updatedRequest : req)));
-     toast({ title: "Material Request Updated", description: `Request ${updatedRequest.id} has been updated.`});
+    // toast({ title: "Material Request Updated", description: `Request ${updatedRequest.id} has been updated.`}); // Already handled in page
   };
 
+  const addBomConfiguration = (bom: BillOfMaterial) => {
+    setBomConfigurations(prevBoms => {
+      // Check if BOM for this product already exists, if so, it's an update, otherwise add
+      const existingIndex = prevBoms.findIndex(b => b.productId === bom.productId);
+      if (existingIndex > -1) {
+        const updatedBoms = [...prevBoms];
+        updatedBoms[existingIndex] = bom;
+        return updatedBoms;
+      }
+      return [...prevBoms, bom];
+    });
+  };
+
+  const updateBomConfiguration = (bom: BillOfMaterial) => {
+    setBomConfigurations(prevBoms =>
+      prevBoms.map(b => (b.productId === bom.productId ? bom : b))
+    );
+  };
+
+  const deleteBomConfiguration = (productId: string) => {
+    setBomConfigurations(prevBoms => prevBoms.filter(b => b.productId !== productId));
+  };
 
   return (
     <AuthContext.Provider value={{ 
@@ -173,10 +202,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       materialRequests,
       addMaterialRequest,
       updateMaterialRequest,
-      products, // Provide products
-      setProducts, // Provide setProducts
-      inventoryTransactions, // Provide inventoryTransactions
-      setInventoryTransactions, // Provide setInventoryTransactions
+      products: productsData,
+      setProducts: setProductsData,
+      inventoryTransactions: inventoryTransactionsData,
+      setInventoryTransactions: setInventoryTransactionsData,
+      bomConfigurations,
+      addBomConfiguration,
+      updateBomConfiguration,
+      deleteBomConfiguration,
     }}>
       {children}
     </AuthContext.Provider>
@@ -190,3 +223,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+    
