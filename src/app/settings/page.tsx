@@ -158,7 +158,8 @@ const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; pe
       "Access operational reports (inventory, material requests, etc.).",
       "Update product statuses and view BOM configurations.",
       "Manage warehouse locations and categories assigned to them.",
-      "Manage notification rules for low stock."
+      "Manage notification rules for low stock.",
+      "Define and manage Bill of Materials (BOM)."
     ],
   },
   DepartmentEmployee: {
@@ -238,7 +239,7 @@ export default function SettingsPage() {
   const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageNotifications = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageIntegrations = currentUser?.role === 'Admin'; 
-  const canManageBOMs = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager'; // Allowing WH Manager too
+  const canManageBOMs = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
 
   const handleOpenNewEditWarehouseModal = (warehouse?: Warehouse) => {
     setEditingWarehouse(warehouse || null);
@@ -546,7 +547,7 @@ export default function SettingsPage() {
                     )}
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Define the raw materials and quantities needed to produce each finished good.
+                  Define the raw materials and quantities needed to produce each finished good. Changes are simulated and not persistent.
                 </p>
                 {bomConfigurations.length > 0 ? (
                    <div className="border rounded-md">
@@ -569,7 +570,7 @@ export default function SettingsPage() {
                                         const rawMaterial = contextProducts.find(p => p.id === item.rawMaterialId);
                                         return (
                                         <span key={index} className="block">
-                                            {rawMaterial?.name || item.rawMaterialName || item.rawMaterialId} ({item.quantityNeeded})
+                                            {rawMaterial?.name || item.rawMaterialName || `ID: ${item.rawMaterialId}`} ({item.quantityNeeded})
                                         </span>
                                         );
                                     })}
@@ -790,5 +791,4 @@ export default function SettingsPage() {
     </div>
   );
 }
-
     
