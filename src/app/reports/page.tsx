@@ -2,13 +2,13 @@
 // src/app/reports/page.tsx
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageHeader } from "@/components/common/page-header";
 import { DateRangePicker } from "@/components/common/date-range-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE, MOCK_USER_ACTIVITIES } from '@/lib/constants'; 
-import type { InventoryTransaction, Product, Category, InventoryTransactionType, UserActivityLog, User } from '@/lib/types';
-import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon, AlertTriangle, Users as UsersIcon } from "lucide-react";
+import { MOCK_USER_ACTIVITIES, ALL_FILTER_VALUE } from '@/lib/constants';
+import type { InventoryTransaction, Product, InventoryTransactionType, UserActivityLog } from '@/lib/types';
+import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon, AlertTriangle, Users as UsersIcon, Loader2 } from "lucide-react";
 import type { DateRange } from 'react-day-picker';
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns';
 import { DataTable } from "@/components/common/data-table";
@@ -86,10 +86,19 @@ export default function ReportsPage() {
   const [filterProduct, setFilterProduct] = useState<string>(ALL_FILTER_VALUE);
   const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE);
   const [filterUserActivity, setFilterUserActivity] = useState<string>(ALL_FILTER_VALUE);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300); // Simulate loading delay
+    return () => clearTimeout(timer);
+  }, [dateRange, filterCategory, filterProduct, filterWarehouse, filterUserActivity, contextTransactions, contextProducts]);
 
 
   const availableProductsForFilter = useMemo(() => {
-    if (filterCategory === ALL_FILTER_VALUE || !filterCategory) { 
+    if (filterCategory === ALL_FILTER_VALUE || !filterCategory) {
       return contextProducts;
     }
     return contextProducts.filter(p => p.category === filterCategory);
@@ -265,7 +274,7 @@ export default function ReportsPage() {
   }, [productBreakdown]);
 
   const pieChartData = useMemo(() => {
-    const typeCounts: Record<string, number> = {}; 
+    const typeCounts: Record<string, number> = {};
     filteredTransactions.forEach(t => {
       typeCounts[t.type] = (typeCounts[t.type] || 0) + Math.abs(t.quantityChange);
     });
@@ -280,9 +289,9 @@ export default function ReportsPage() {
         p.status === 'Low Stock' ||
         p.status === 'Out of Stock'
     ).filter(p => {
-        return filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : p.warehouseId === filterWarehouse; 
+        return filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : p.warehouseId === filterWarehouse;
     }).filter(p => {
-        return filterCategory === ALL_FILTER_VALUE || !filterCategory ? true : p.category === filterCategory; 
+        return filterCategory === ALL_FILTER_VALUE || !filterCategory ? true : p.category === filterCategory;
     });
   }, [filterWarehouse, filterCategory, contextProducts]);
 
@@ -316,7 +325,7 @@ export default function ReportsPage() {
     return MOCK_USER_ACTIVITIES.filter(activity => {
       const activityDate = new Date(activity.timestamp);
       const dateMatch = isWithinInterval(activityDate, { start: dateRange.from as Date, end: dateRange.to as Date });
-      const userMatch = filterUserActivity === ALL_FILTER_VALUE || !filterUserActivity ? true : activity.userId === filterUserActivity; 
+      const userMatch = filterUserActivity === ALL_FILTER_VALUE || !filterUserActivity ? true : activity.userId === filterUserActivity;
       return dateMatch && userMatch;
     });
   }, [dateRange, filterUserActivity]);
@@ -526,170 +535,178 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Damaged"
-          value={overallStats.damaged}
-          description="Items marked as damaged"
-          icon={PackageX}
-        />
-        <StatCard
-          title="Total Returned"
-          value={overallStats.returned}
-          description="Items returned to inventory"
-          icon={Undo2}
-        />
-        <StatCard
-          title="Total Stock Inflow"
-          value={overallStats.inflow}
-          description="New items & initial stock"
-          icon={PackagePlus}
-        />
-        <StatCard
-          title="Total Stock Outflow"
-          value={overallStats.outflow}
-          description="Items used or sold"
-          icon={PackageMinus}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Product Inflow vs. Outflow (Top 10)</CardTitle>
-            <CardDescription>Comparison of total inflow and outflow for selected products.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {barChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={barChartData} margin={{ top: 5, right: 20, left: -20, bottom: 50 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" interval={0} style={{ fontSize: '0.75rem' }}/>
-                  <YAxis style={{ fontSize: '0.75rem' }}/>
-                  <Tooltip contentStyle={{fontSize: '0.75rem'}}/>
-                  <Legend wrapperStyle={{fontSize: '0.8rem'}}/>
-                  <Bar dataKey="Inflow" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Outflow" fill="hsl(var(--chart-5))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">No data available for the selected filters to display this chart.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Transaction Type Distribution</CardTitle>
-            <CardDescription>Breakdown of transaction types by total quantity moved.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {pieChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    dataKey="value"
-                    style={{ fontSize: '0.8rem' }}
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{fontSize: '0.75rem'}}/>
-                  <Legend wrapperStyle={{fontSize: '0.8rem'}}/>
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">No transaction data available for the selected filters to display this chart.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="mt-6 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Product Movement Breakdown</CardTitle>
-            <CardDescription>
-              Detailed summary of inventory movements per product for the selected date range and filters.
-            </CardDescription>
+      {isLoading ? (
+          <div className="text-center py-10 col-span-full"> {/* Ensure loading spans all columns if in grid */}
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+            <p className="mt-3 text-muted-foreground">Loading reports data...</p>
           </div>
-          <Button onClick={handleExportProductMovement} variant="outline" size="sm" disabled={productBreakdown.length === 0}>
-            <Download className="mr-2 h-4 w-4" /> Export CSV
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {dateRange?.from && dateRange?.to ? (
-            <DataTable columns={productReportColumns} data={productBreakdown} filterColumn="productName" filterInputPlaceholder="Filter by product name..."/>
-          ) : (
-             <p className="text-center text-muted-foreground py-8">Please select a date range to see the detailed breakdown.</p>
-          )}
-        </CardContent>
-      </Card>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title="Total Damaged"
+              value={overallStats.damaged}
+              description="Items marked as damaged"
+              icon={PackageX}
+            />
+            <StatCard
+              title="Total Returned"
+              value={overallStats.returned}
+              description="Items returned to inventory"
+              icon={Undo2}
+            />
+            <StatCard
+              title="Total Stock Inflow"
+              value={overallStats.inflow}
+              description="New items & initial stock"
+              icon={PackagePlus}
+            />
+            <StatCard
+              title="Total Stock Outflow"
+              value={overallStats.outflow}
+              description="Items used or sold"
+              icon={PackageMinus}
+            />
+          </div>
 
-      <Card className="mt-6 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-yellow-500" /> Defect &amp; Return Report</CardTitle>
-                <CardDescription>Details of items marked as damaged or returned within the selected filters.</CardDescription>
-            </div>
-            <Button onClick={handleExportDefectReturn} variant="outline" size="sm" disabled={defectReturnTransactions.length === 0}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle>Product Inflow vs. Outflow (Top 10)</CardTitle>
+                <CardDescription>Comparison of total inflow and outflow for selected products.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {barChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={barChartData} margin={{ top: 5, right: 20, left: -20, bottom: 50 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" interval={0} style={{ fontSize: '0.75rem' }}/>
+                      <YAxis style={{ fontSize: '0.75rem' }}/>
+                      <Tooltip contentStyle={{fontSize: '0.75rem'}}/>
+                      <Legend wrapperStyle={{fontSize: '0.8rem'}}/>
+                      <Bar dataKey="Inflow" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Outflow" fill="hsl(var(--chart-5))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">No data available for the selected filters to display this chart.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle>Transaction Type Distribution</CardTitle>
+                <CardDescription>Breakdown of transaction types by total quantity moved.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pieChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={pieChartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        dataKey="value"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        {pieChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{fontSize: '0.75rem'}}/>
+                      <Legend wrapperStyle={{fontSize: '0.8rem'}}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">No transaction data available for the selected filters to display this chart.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="mt-6 shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Product Movement Breakdown</CardTitle>
+                <CardDescription>
+                  Detailed summary of inventory movements per product for the selected date range and filters.
+                </CardDescription>
+              </div>
+              <Button onClick={handleExportProductMovement} variant="outline" size="sm" disabled={productBreakdown.length === 0}>
                 <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
-        </CardHeader>
-        <CardContent>
-            {defectReturnTransactions.length > 0 ? (
-                <DataTable columns={defectReturnColumns} data={defectReturnTransactions} filterColumn="productName" filterInputPlaceholder="Filter by product name..." />
-            ) : (
-                <p className="text-center text-muted-foreground py-8">No damaged or returned items found for the selected filters.</p>
-            )}
-        </CardContent>
-      </Card>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {dateRange?.from && dateRange?.to ? (
+                <DataTable columns={productReportColumns} data={productBreakdown} filterColumn="productName" filterInputPlaceholder="Filter by product name..."/>
+              ) : (
+                 <p className="text-center text-muted-foreground py-8">Please select a date range to see the detailed breakdown.</p>
+              )}
+            </CardContent>
+          </Card>
 
-      <Card className="mt-6 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-orange-500" />Low Stock / Reorder Needed Report</CardTitle>
-                <CardDescription>Products that are below their reorder level or marked as low/out of stock. Applies active warehouse/category filters.</CardDescription>
-            </div>
-            <Button onClick={handleExportLowStock} variant="outline" size="sm" disabled={lowStockProducts.length === 0}>
-                <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
-        </CardHeader>
-        <CardContent>
-            {lowStockProducts.length > 0 ? (
-                <DataTable columns={lowStockColumns} data={lowStockProducts} filterColumn="name" filterInputPlaceholder="Filter by product name..." />
-            ) : (
-                <p className="text-center text-muted-foreground py-8">No products currently need reordering based on active filters.</p>
-            )}
-        </CardContent>
-      </Card>
+          <Card className="mt-6 shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-yellow-500" /> Defect &amp; Return Report</CardTitle>
+                    <CardDescription>Details of items marked as damaged or returned within the selected filters.</CardDescription>
+                </div>
+                <Button onClick={handleExportDefectReturn} variant="outline" size="sm" disabled={defectReturnTransactions.length === 0}>
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+            </CardHeader>
+            <CardContent>
+                {defectReturnTransactions.length > 0 ? (
+                    <DataTable columns={defectReturnColumns} data={defectReturnTransactions} filterColumn="productName" filterInputPlaceholder="Filter by product name..." />
+                ) : (
+                    <p className="text-center text-muted-foreground py-8">No damaged or returned items found for the selected filters.</p>
+                )}
+            </CardContent>
+          </Card>
 
-      <Card className="mt-6 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-purple-500" /> User Activity Log</CardTitle>
-                <CardDescription>Tracks key actions performed by users within the selected date range and user filter.</CardDescription>
-            </div>
-            <Button onClick={handleExportUserActivity} variant="outline" size="sm" disabled={filteredUserActivities.length === 0}>
-                <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
-        </CardHeader>
-        <CardContent>
-          {dateRange?.from && dateRange?.to ? (
-            <DataTable columns={userActivityColumns} data={filteredUserActivities} filterColumn="userName" filterInputPlaceholder="Filter by user name in log..." />
-          ) : (
-             <p className="text-center text-muted-foreground py-8">Please select a date range to see user activity.</p>
-          )}
-        </CardContent>
-      </Card>
+          <Card className="mt-6 shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-orange-500" />Low Stock / Reorder Needed Report</CardTitle>
+                    <CardDescription>Products that are below their reorder level or marked as low/out of stock. Applies active warehouse/category filters.</CardDescription>
+                </div>
+                <Button onClick={handleExportLowStock} variant="outline" size="sm" disabled={lowStockProducts.length === 0}>
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+            </CardHeader>
+            <CardContent>
+                {lowStockProducts.length > 0 ? (
+                    <DataTable columns={lowStockColumns} data={lowStockProducts} filterColumn="name" filterInputPlaceholder="Filter by product name..." />
+                ) : (
+                    <p className="text-center text-muted-foreground py-8">No products currently need reordering based on active filters.</p>
+                )}
+            </CardContent>
+          </Card>
 
+          <Card className="mt-6 shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-purple-500" /> User Activity Log</CardTitle>
+                    <CardDescription>Tracks key actions performed by users within the selected date range and user filter.</CardDescription>
+                </div>
+                <Button onClick={handleExportUserActivity} variant="outline" size="sm" disabled={filteredUserActivities.length === 0}>
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+            </CardHeader>
+            <CardContent>
+              {dateRange?.from && dateRange?.to ? (
+                <DataTable columns={userActivityColumns} data={filteredUserActivities} filterColumn="userName" filterInputPlaceholder="Filter by user name in log..." />
+              ) : (
+                 <p className="text-center text-muted-foreground py-8">Please select a date range to see user activity.</p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

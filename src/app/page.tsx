@@ -13,13 +13,13 @@ import { Label } from "@/components/ui/label";
 import {
   Package, AlertTriangle, Activity, TrendingUp, TrendingDown, Settings, ShoppingCart, Component,
   ClipboardList, BarChart3, ArrowRight, PackageSearch, Clock, CheckCircle2, XCircle, Hourglass, ListOrdered,
-  ThumbsUp, ThumbsDown, PackageCheck, CircleSlash
+  ThumbsUp, ThumbsDown, PackageCheck, CircleSlash, Loader2
 } from "lucide-react";
-import { MOCK_PRODUCTS, MOCK_INVENTORY_TRANSACTIONS, MOCK_BOM_CONFIGURATIONS } from "@/lib/constants";
+import { MOCK_BOM_CONFIGURATIONS } from "@/lib/constants";
 import type { Product, BillOfMaterial, InventoryTransaction, MaterialRequest } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
-import { addDays, subDays, parseISO } from 'date-fns';
+import { subDays, parseISO } from 'date-fns';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -49,8 +49,8 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, descripti
       <CardContent>
         {isLoading ? (
           <>
-            <div className="text-2xl font-bold h-8 animate-pulse bg-muted rounded w-1/2 mb-1"></div>
-            <div className="text-xs text-muted-foreground h-4 animate-pulse bg-muted rounded w-3/4"></div>
+            <div className="h-8 animate-pulse bg-muted rounded w-1/2 mb-1"></div>
+            <div className="h-4 animate-pulse bg-muted rounded w-3/4"></div>
           </>
         ) : (
           <>
@@ -87,8 +87,8 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, descripti
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const { currentUser, warehouses, materialRequests, products: contextProducts, inventoryTransactions: contextTransactions, setInventoryTransactions, setProducts } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { currentUser, warehouses, materialRequests: contextMaterialRequests, products: contextProducts, inventoryTransactions: contextTransactions, setInventoryTransactions, setProducts } = useAuth();
+  const [isLoading, setIsLoading] = useState(true); // Renamed from loading to isLoading for consistency
 
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -107,12 +107,13 @@ export default function DashboardPage() {
   }, [contextProducts]);
 
   useEffect(() => {
+    setIsLoading(true);
     const timer = setTimeout(() => {
       const products = contextProducts;
       const inventoryTransactions = contextTransactions;
 
       const lowStockProducts = products.filter(p => p.quantity <= p.reorderLevel || p.status === 'Low Stock' || p.status === 'Out of Stock');
-      const pendingRequests = materialRequests.filter(r => r.status === 'Pending');
+      const pendingRequests = contextMaterialRequests.filter(r => r.status === 'Pending');
 
       const sevenDaysAgo = subDays(new Date(), 7);
       const recentTrans = inventoryTransactions.filter(t => {
@@ -129,13 +130,13 @@ export default function DashboardPage() {
       });
 
       setRecentInventory(inventoryTransactions.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()).slice(0, 5));
-      setRecentRequests(materialRequests.sort((a, b) => parseISO(b.submissionDate).getTime() - parseISO(a.submissionDate).getTime()).slice(0, 5));
-      setItemsToReorder(lowStockProducts.sort((a,b) => (a.quantity - a.reorderLevel) - (b.quantity - b.reorderLevel)).slice(0,3));
+      setRecentRequests(contextMaterialRequests.sort((a, b) => parseISO(b.submissionDate).getTime() - parseISO(a.submissionDate).getTime()).slice(0, 5));
+      setItemsToReorder(lowStockProducts.sort((a,b) => (a.reorderLevel - a.quantity) - (b.reorderLevel - b.quantity)).slice(0,3)); // Sort by most needed
 
-      setLoading(false);
-    }, 500);
+      setIsLoading(false);
+    }, 500); // Slightly longer delay for dashboard elements to appear loaded
     return () => clearTimeout(timer);
-  }, [materialRequests, contextProducts, contextTransactions]);
+  }, [contextMaterialRequests, contextProducts, contextTransactions]);
 
   const handleSimulateSale = () => {
     if (!selectedFinishedGood) {
@@ -147,9 +148,12 @@ export default function DashboardPage() {
       return;
     }
 
+    setIsLoading(true); // Indicate loading for UI feedback
+
     const soldProduct = contextProducts.find(p => p.id === selectedFinishedGood);
     if (!soldProduct) {
         toast({ title: "Error", description: "Selected finished good not found.", variant: "destructive" });
+        setIsLoading(false);
         return;
     }
 
@@ -159,12 +163,16 @@ export default function DashboardPage() {
     const updatedProductsArray = [...contextProducts];
     const updatedTransactionsArray = [...contextTransactions];
 
-    // Simulate sale of finished good
     const soldProductIndex = updatedProductsArray.findIndex(p => p.id === soldProduct.id);
-    if (soldProductIndex === -1) return;
+    if (soldProductIndex === -1) {
+        setIsLoading(false);
+        return;
+    }
 
     const originalFinishedGoodQty = updatedProductsArray[soldProductIndex].quantity;
     updatedProductsArray[soldProductIndex].quantity = Math.max(0, updatedProductsArray[soldProductIndex].quantity - 1);
+    updatedProductsArray[soldProductIndex].lastUpdated = currentDate;
+
 
     const finishedGoodTransaction: InventoryTransaction = {
         id: `txn_cms_fg_${Date.now()}`,
@@ -188,6 +196,8 @@ export default function DashboardPage() {
         if (rawMaterialIndex !== -1) {
           const originalQty = updatedProductsArray[rawMaterialIndex].quantity;
           updatedProductsArray[rawMaterialIndex].quantity = Math.max(0, updatedProductsArray[rawMaterialIndex].quantity - item.quantityNeeded);
+          updatedProductsArray[rawMaterialIndex].lastUpdated = currentDate;
+
 
           const transaction: InventoryTransaction = {
             id: `txn_cms_rm_${updatedProductsArray[rawMaterialIndex].id}_${Date.now()}`,
@@ -241,10 +251,9 @@ export default function DashboardPage() {
 
     setProducts(updatedProductsArray);
     setInventoryTransactions(updatedTransactionsArray);
-
-    // Force re-fetch/re-render of stats by toggling loading
-    setLoading(true);
-    setTimeout(() => { setLoading(false); }, 200); // Triggers useEffect re-run
+    
+    // Let the main useEffect handle re-setting isLoading to false after data updates propagate
+    // setTimeout(() => { setIsLoading(false); }, 200); // Keep a small delay if needed
   };
 
   const getStatusBadgeVariant = (status: MaterialRequest['status']) => {
@@ -282,7 +291,7 @@ export default function DashboardPage() {
             value={stats.totalProducts}
             icon={Package}
             description="Managed in system"
-            isLoading={loading}
+            isLoading={isLoading}
             linkTo="/products"
             colorClass="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700"
         />
@@ -291,7 +300,7 @@ export default function DashboardPage() {
             value={stats.lowStockAlerts}
             icon={AlertTriangle}
             description="Items needing reorder"
-            isLoading={loading}
+            isLoading={isLoading}
             linkTo="/reports"
             colorClass="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700"
         />
@@ -300,7 +309,7 @@ export default function DashboardPage() {
             value={stats.pendingMaterialRequests}
             icon={ClipboardList}
             description="Awaiting approval"
-            isLoading={loading}
+            isLoading={isLoading}
             linkTo="/material-requests?status=Pending"
             colorClass="bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700"
         />
@@ -309,7 +318,7 @@ export default function DashboardPage() {
             value={stats.recentTransactionsCount}
             icon={ListOrdered}
             description="Transactions (last 7 days)"
-            isLoading={loading}
+            isLoading={isLoading}
             linkTo="/inventory"
             colorClass="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700"
         />
@@ -348,8 +357,11 @@ export default function DashboardPage() {
             <CardDescription>Last 5 inventory transactions. <Link href="/inventory" className="text-primary hover:underline text-xs">View All</Link></CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <p className="text-muted-foreground text-sm">Loading recent movements...</p>
+            {isLoading ? (
+              <div className="text-center py-6">
+                <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                <p className="mt-2 text-sm text-muted-foreground">Loading recent movements...</p>
+              </div>
             ) : recentInventory.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table className="text-xs">
@@ -378,7 +390,7 @@ export default function DashboardPage() {
                 </Table>
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">No recent inventory movements.</p>
+              <p className="text-center text-muted-foreground text-sm py-6">No recent inventory movements.</p>
             )}
           </CardContent>
         </Card>
@@ -405,8 +417,9 @@ export default function DashboardPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleSimulateSale} className="w-full" disabled={!selectedFinishedGood || finishedGoods.length === 0}>
-              <ShoppingCart className="mr-2 h-4 w-4" /> Simulate Sale & BOM Deduction
+            <Button onClick={handleSimulateSale} className="w-full" disabled={!selectedFinishedGood || finishedGoods.length === 0 || isLoading}>
+              {isLoading && selectedFinishedGood ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
+              Simulate Sale & BOM Deduction
             </Button>
           </CardContent>
         </Card>
@@ -417,8 +430,11 @@ export default function DashboardPage() {
             <CardDescription>Top 3 products at or below reorder level. <Link href="/reports" className="text-primary hover:underline text-xs">View Full Report</Link></CardDescription>
           </CardHeader>
           <CardContent>
-             {loading ? (
-              <p className="text-muted-foreground text-sm">Loading reorder alerts...</p>
+             {isLoading ? (
+              <div className="text-center py-6">
+                <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                <p className="mt-2 text-sm text-muted-foreground">Loading reorder alerts...</p>
+              </div>
             ) : itemsToReorder.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table className="text-xs">
@@ -441,7 +457,7 @@ export default function DashboardPage() {
                 </Table>
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">No items currently need reordering.</p>
+              <p className="text-center text-muted-foreground text-sm py-6">No items currently need reordering.</p>
             )}
           </CardContent>
         </Card>
@@ -453,8 +469,11 @@ export default function DashboardPage() {
             <CardDescription>Last 5 material requests submitted. <Link href="/material-requests" className="text-primary hover:underline text-xs">View All Requests</Link></CardDescription>
         </CardHeader>
         <CardContent>
-            {loading ? (
-                <p className="text-muted-foreground text-sm">Loading recent requests...</p>
+            {isLoading ? (
+                <div className="text-center py-6">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                    <p className="mt-2 text-sm text-muted-foreground">Loading recent requests...</p>
+                </div>
             ) : recentRequests.length > 0 ? (
                 <div className="overflow-x-auto">
                     <Table className="text-xs">
@@ -489,7 +508,7 @@ export default function DashboardPage() {
                     </Table>
                 </div>
             ) : (
-                <p className="text-muted-foreground text-sm">No material requests found.</p>
+                <p className="text-center text-muted-foreground text-sm py-6">No material requests found.</p>
             )}
         </CardContent>
       </Card>

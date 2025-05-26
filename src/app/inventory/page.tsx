@@ -2,27 +2,26 @@
 // src/app/inventory/page.tsx
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { VarianceExplainerModal } from "@/components/inventory/variance-explainer-modal";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE } from '@/lib/constants';
+import { ALL_FILTER_VALUE } from '@/lib/constants';
 import type { InventoryTransaction, InventoryTransactionType } from '@/lib/types';
-import { ListOrdered, Filter } from 'lucide-react';
+import { ListOrdered, Filter, Loader2 } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import { DateRangePicker } from '@/components/common/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { addDays } from 'date-fns';
 import { ClientSideFormattedDate } from '@/components/common/client-side-formatted-date';
-import { useAuth } from '@/contexts/auth-context'; 
+import { useAuth } from '@/contexts/auth-context';
 
 const TRANSACTION_TYPES: InventoryTransactionType[] = ['Inflow', 'Outflow', 'Return', 'Damage', 'Adjustment', 'Initial'];
 
 export default function InventoryPage() {
-  const { warehouses, products: contextProducts, inventoryTransactions: contextTransactions } = useAuth(); 
-  // const [transactions, setTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
+  const { warehouses, products: contextProducts, inventoryTransactions: contextTransactions } = useAuth();
   const [filterProduct, setFilterProduct] = useState<string>(ALL_FILTER_VALUE);
   const [filterType, setFilterType] = useState<string>(ALL_FILTER_VALUE);
   const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE);
@@ -31,11 +30,21 @@ export default function InventoryPage() {
     from: addDays(new Date(), -30),
     to: new Date(),
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   const uniqueUsers = useMemo(() => {
     const users = new Set(contextTransactions.map(t => t.user));
     return Array.from(users).sort();
   }, [contextTransactions]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300); // Simulate loading delay
+    return () => clearTimeout(timer);
+  }, [filterProduct, filterType, filterWarehouse, filterUser, dateRange, contextTransactions]);
+
 
   const filteredTransactions = useMemo(() => {
     return contextTransactions.filter(transaction => {
@@ -44,8 +53,8 @@ export default function InventoryPage() {
       const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || filterWarehouse === "" ? true : transaction.warehouseId === filterWarehouse;
       const userMatch = filterUser === ALL_FILTER_VALUE || filterUser === "" ? true : transaction.user === filterUser;
       const date = new Date(transaction.date);
-      const dateMatch = dateRange?.from && dateRange?.to 
-        ? date >= dateRange.from && date <= dateRange.to 
+      const dateMatch = dateRange?.from && dateRange?.to
+        ? date >= dateRange.from && date <= dateRange.to
         : true;
       return productMatch && typeMatch && warehouseMatch && userMatch && dateMatch;
     });
@@ -58,14 +67,14 @@ export default function InventoryPage() {
       cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.date} formatString="PP" />,
     },
     { accessorKey: "productName", header: "Product Name" },
-    { 
-      accessorKey: "warehouseName", 
+    {
+      accessorKey: "warehouseName",
       header: "Warehouse",
       cell: ({ row }) => row.original.warehouseName || warehouses.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A'
     },
     { accessorKey: "type", header: "Type" },
-    { 
-      accessorKey: "quantityChange", 
+    {
+      accessorKey: "quantityChange",
       header: "Quantity Change",
       cell: ({ row }) => {
         const quantity = row.original.quantityChange;
@@ -80,7 +89,7 @@ export default function InventoryPage() {
     { accessorKey: "user", header: "User/System" },
     { accessorKey: "reason", header: "Reason/Notes" },
   ];
-  
+
   const clearAllFilters = () => {
     setFilterProduct(ALL_FILTER_VALUE);
     setFilterType(ALL_FILTER_VALUE);
@@ -101,8 +110,8 @@ export default function InventoryPage() {
       <div className="space-y-4 pt-2">
         <div className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-          <Select 
-            value={filterProduct} 
+          <Select
+            value={filterProduct}
             onValueChange={(value) => setFilterProduct(value === ALL_FILTER_VALUE ? "" : value)}
           >
             <SelectTrigger className="w-full md:w-[200px] h-9">
@@ -113,8 +122,8 @@ export default function InventoryPage() {
               {contextProducts.map(prod => <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select 
-            value={filterType} 
+          <Select
+            value={filterType}
             onValueChange={(value) => setFilterType(value === ALL_FILTER_VALUE ? "" : value)}
           >
             <SelectTrigger className="w-full md:w-[180px] h-9">
@@ -153,8 +162,16 @@ export default function InventoryPage() {
             <Filter className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>
-        <DataTable columns={columns} data={filteredTransactions} filterColumn="productName" />
+        {isLoading ? (
+          <div className="text-center py-10">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="mt-2 text-muted-foreground">Loading inventory data...</p>
+          </div>
+        ) : (
+          <DataTable columns={columns} data={filteredTransactions} filterColumn="productName" />
+        )}
       </div>
     </div>
   );
 }
+

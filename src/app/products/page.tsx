@@ -3,12 +3,12 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link'; 
+import Link from 'next/link';
 import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { FileUploadCard } from "@/components/common/file-upload-card";
 import { ProductStatusModal } from "@/components/product/product-status-modal";
-import { AddEditProductModal } from "@/components/product/add-edit-product-modal"; 
+import { AddEditProductModal } from "@/components/product/add-edit-product-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { PRODUCT_STATUS_OPTIONS, ALL_FILTER_VALUE } from '@/lib/constants';
 import type { Product, ProductStatus } from '@/lib/types';
-import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Edit, PlusCircle, Info } from 'lucide-react';
+import { Package, Filter, UploadCloud, Edit3, MoreHorizontal, Trash2, Eye, Edit, PlusCircle, Info, Loader2 } from 'lucide-react';
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
@@ -27,23 +27,34 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 
 export default function ProductsPage() {
-  const { currentUser, categories, warehouses, products: contextProducts, setProducts: setContextProducts } = useAuth(); 
+  const { currentUser, categories, warehouses, products: contextProducts, setProducts: setContextProducts } = useAuth();
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>(ALL_FILTER_VALUE);
   const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
-  const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE); 
+  const [filterWarehouse, setFilterWarehouse] = useState<string>(ALL_FILTER_VALUE);
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedProductForStatus, setSelectedProductForStatus] = useState<Product | null>(null);
-  
+
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
 
   const { toast } = useToast();
 
   const canAddProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canEditProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canDeleteProducts = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
+
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300); // Simulate loading delay
+    return () => clearTimeout(timer);
+  }, [filterName, filterCategory, filterStatus, filterWarehouse, contextProducts]);
+
 
   const handleProductImport = async (file: File) => {
     if (!canAddProducts && !canEditProducts) {
@@ -151,17 +162,17 @@ export default function ProductsPage() {
     );
     toast({ title: "Status Updated", description: `Status for product ${productId} changed to ${newStatus}.` });
   };
-  
+
   const handleOpenAddEditModal = (product?: Product) => {
     setEditingProduct(product || null);
     setIsAddEditModalOpen(true);
   };
 
   const handleSaveProduct = (productData: Product) => {
-    if (editingProduct) { 
+    if (editingProduct) {
       setContextProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
       toast({ title: "Product Updated", description: `${productData.name} has been updated.`});
-    } else { 
+    } else {
       setContextProducts(prev => [{...productData, id: `prod${Date.now()}`}, ...prev]);
       toast({ title: "Product Added", description: `${productData.name} has been added.`});
     }
@@ -278,13 +289,13 @@ export default function ProductsPage() {
                 <Edit3 className="mr-2 h-4 w-4" /> Update Status
               </DropdownMenuItem>
             )}
-            
+
             {canDeleteProducts && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                  onClick={() => { 
+                  onClick={() => {
                     setContextProducts(prev => prev.filter(p => p.id !== row.original.id));
                     toast({title: "Product Deleted", description: `Product ${row.original.name} has been deleted (simulated).`, variant: "destructive"})
                   }}
@@ -422,7 +433,14 @@ export default function ProductsPage() {
             <Filter className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>
-        <DataTable columns={columns} data={filteredProducts} filterColumn="name" />
+        {isLoading ? (
+          <div className="text-center py-10">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="mt-2 text-muted-foreground">Loading products...</p>
+          </div>
+        ) : (
+          <DataTable columns={columns} data={filteredProducts} filterColumn="name" />
+        )}
       </div>
 
       {selectedProductForStatus && (<ProductStatusModal

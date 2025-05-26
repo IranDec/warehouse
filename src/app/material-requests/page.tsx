@@ -7,9 +7,9 @@ import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ClipboardList, PlusCircle, Filter, MoreHorizontal, CheckCircle, XCircle, 
-  Edit, Ban, Hourglass, ThumbsUp, ThumbsDown, CircleSlash, PackageCheck 
+import {
+  ClipboardList, PlusCircle, Filter, MoreHorizontal, CheckCircle, XCircle,
+  Edit, Ban, Hourglass, ThumbsUp, ThumbsDown, CircleSlash, PackageCheck, Loader2
 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAuth } from '@/contexts/auth-context';
@@ -65,17 +65,18 @@ const StatDisplayCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, co
 
 
 export default function MaterialRequestsPage() {
-  const { currentUser, materialRequests, addMaterialRequest, updateMaterialRequest: contextUpdateMaterialRequest, users: authUsers } = useAuth();
+  const { currentUser, materialRequests: contextMaterialRequests, addMaterialRequest, updateMaterialRequest: contextUpdateMaterialRequest, users: authUsers } = useAuth();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaterialRequest | null>(null);
-  
+
   const [filterStatus, setFilterStatus] = useState<string>(ALL_FILTER_VALUE);
   const [filterRequester, setFilterRequester] = useState<string>(ALL_FILTER_VALUE);
   const [filterDepartment, setFilterDepartment] = useState<string>(ALL_FILTER_VALUE);
   const [filterSubmissionDate, setFilterSubmissionDate] = useState<DateRange | undefined>(undefined);
 
   const [showCancelConfirm, setShowCancelConfirm] = useState<MaterialRequest | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const canCreateRequests = currentUser?.role === 'DepartmentEmployee';
   const canManageRequests = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
@@ -90,37 +91,45 @@ export default function MaterialRequestsPage() {
     return "View material requests. Contact an administrator for more permissions.";
   }, [canManageRequests, canCreateRequests]);
 
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300); // Simulate loading delay
+    return () => clearTimeout(timer);
+  }, [filterStatus, filterRequester, filterDepartment, filterSubmissionDate, contextMaterialRequests]);
+
+
   const uniqueRequesters = useMemo(() => {
-    // Use authUsers for consistent list of possible requesters if available
     if (authUsers && authUsers.length > 0) {
-        return authUsers.filter(u => u.role === 'DepartmentEmployee' || materialRequests.some(r => r.requesterId === u.id)).map(u => u.name).sort();
+        return authUsers.filter(u => u.role === 'DepartmentEmployee' || contextMaterialRequests.some(r => r.requesterId === u.id)).map(u => u.name).sort();
     }
-    const requesters = new Set(materialRequests.map(r => r.requesterName));
+    const requesters = new Set(contextMaterialRequests.map(r => r.requesterName));
     return Array.from(requesters).sort();
-  }, [materialRequests, authUsers]); 
+  }, [contextMaterialRequests, authUsers]);
 
   const uniqueDepartments = useMemo(() => {
-    const departments = new Set(materialRequests.map(r => r.departmentCategory));
+    const departments = new Set(contextMaterialRequests.map(r => r.departmentCategory));
     return Array.from(departments).sort();
-  }, [materialRequests]); 
+  }, [contextMaterialRequests]);
 
   const handleAddNewRequestFromPage = (newRequestData: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>) => {
-    addMaterialRequest(newRequestData); 
+    addMaterialRequest(newRequestData);
   };
 
   const handleUpdateRequest = (updatedRequest: MaterialRequest) => {
-    contextUpdateMaterialRequest(updatedRequest); 
+    contextUpdateMaterialRequest(updatedRequest);
   }
 
   const handleAction = (requestId: string, newStatus: MaterialRequestStatus, notes?: string) => {
     if (!currentUser) return;
 
-    const requestToUpdate = materialRequests.find(r => r.id === requestId);
+    const requestToUpdate = contextMaterialRequests.find(r => r.id === requestId);
     if (!requestToUpdate) {
         toast({ title: "Error", description: "Request not found.", variant: "destructive"});
         return;
     }
-    
+
     const isManagerAction = (newStatus === 'Approved' || newStatus === 'Rejected') && canManageRequests;
     const isRequesterAction = newStatus === 'Cancelled' && requestToUpdate.requesterId === currentUser.id && requestToUpdate.status === 'Pending';
 
@@ -146,18 +155,18 @@ export default function MaterialRequestsPage() {
   };
 
   const filteredRequests = useMemo(() => {
-    return materialRequests.filter(request => {
+    return contextMaterialRequests.filter(request => {
       const statusMatch = filterStatus === ALL_FILTER_VALUE ? true : request.status === filterStatus;
       const requesterMatch = filterRequester === ALL_FILTER_VALUE ? true : request.requesterName === filterRequester;
       const departmentMatch = filterDepartment === ALL_FILTER_VALUE ? true : request.departmentCategory === filterDepartment;
-      
+
       let submissionDateMatch = true;
       if (filterSubmissionDate?.from && filterSubmissionDate?.to) {
         try {
           const submissionDateObj = parseISO(request.submissionDate);
-          submissionDateMatch = isWithinInterval(submissionDateObj, { 
-            start: startOfDay(filterSubmissionDate.from), 
-            end: endOfDay(filterSubmissionDate.to) 
+          submissionDateMatch = isWithinInterval(submissionDateObj, {
+            start: startOfDay(filterSubmissionDate.from),
+            end: endOfDay(filterSubmissionDate.to)
           });
         } catch (e) {
           console.error("Error parsing submission date for filtering:", request.submissionDate, e);
@@ -180,8 +189,8 @@ export default function MaterialRequestsPage() {
 
       return statusMatch && requesterMatch && departmentMatch && submissionDateMatch && userSpecificFilter;
     });
-  }, [materialRequests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate, canManageRequests]);
-  
+  }, [contextMaterialRequests, currentUser, filterStatus, filterRequester, filterDepartment, filterSubmissionDate, canManageRequests]);
+
   const summaryStats = useMemo(() => {
     const stats: Record<MaterialRequestStatus, number> = {
       Pending: 0, Approved: 0, Rejected: 0, Completed: 0, Cancelled: 0,
@@ -226,8 +235,8 @@ export default function MaterialRequestsPage() {
         );
       }
     },
-    { 
-      accessorKey: "reasonForRequest", 
+    {
+      accessorKey: "reasonForRequest",
       header: "Reason",
       cell: ({ row }) => <div className="max-w-[200px] truncate" title={row.original.reasonForRequest}>{row.original.reasonForRequest}</div>
     },
@@ -264,7 +273,7 @@ export default function MaterialRequestsPage() {
         enableSorting: false,
         cell: ({ row }) => {
             const { approverName, approverNotes, status, actionDate } = row.original;
-            if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate && !row.original.actionDate)) { 
+            if (status === 'Pending' || (status === 'Cancelled' && !approverName && !actionDate && !row.original.actionDate)) {
                  return <span className="text-xs text-muted-foreground">N/A</span>;
             }
             return (
@@ -305,7 +314,7 @@ export default function MaterialRequestsPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     const reason = prompt('Reason for rejection (optional):');
-                    if (reason !== null) { 
+                    if (reason !== null) {
                       handleAction(request.id, 'Rejected', reason || undefined);
                     }
                   }}>
@@ -324,7 +333,7 @@ export default function MaterialRequestsPage() {
                   </DropdownMenuItem>
                  </>
               )}
-              { !(canManageRequests && request.status === 'Pending') && 
+              { !(canManageRequests && request.status === 'Pending') &&
                 !(isRequester && request.status === 'Pending') &&
                 (
                 <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
@@ -374,8 +383,8 @@ export default function MaterialRequestsPage() {
                 {MATERIAL_REQUEST_STATUS_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
               </SelectContent>
             </Select>
-             <Select 
-                value={filterRequester} 
+             <Select
+                value={filterRequester}
                 onValueChange={(value) => setFilterRequester(value)}
                 disabled={currentUser?.role === 'DepartmentEmployee' && !canManageRequests}
             >
@@ -387,8 +396,8 @@ export default function MaterialRequestsPage() {
                 {uniqueRequesters.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select 
-                value={filterDepartment} 
+            <Select
+                value={filterDepartment}
                 onValueChange={(value) => setFilterDepartment(value)}
                 disabled={currentUser?.role === 'DepartmentEmployee' && !!currentUser.categoryAccess && !canManageRequests}
             >
@@ -406,7 +415,15 @@ export default function MaterialRequestsPage() {
         </CardContent>
       </Card>
 
-      <DataTable columns={columns} data={filteredRequests} filterColumn="id" filterInputPlaceholder="Filter by Request ID..."/>
+      {isLoading ? (
+        <div className="text-center py-10">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-2 text-muted-foreground">Loading material requests...</p>
+        </div>
+      ) : (
+        <DataTable columns={columns} data={filteredRequests} filterColumn="id" filterInputPlaceholder="Filter by Request ID..."/>
+      )}
+
 
       {currentUser && (
         <NewMaterialRequestModal
@@ -416,7 +433,7 @@ export default function MaterialRequestsPage() {
             const updatedReq = {
               ...editingRequest,
               ...data,
-              items: data.items, 
+              items: data.items,
               requestedDate: data.requestedDate,
               reasonForRequest: data.reasonForRequest,
             };
@@ -458,3 +475,4 @@ export default function MaterialRequestsPage() {
     </div>
   );
 }
+
