@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
+import { useLanguage } from '@/contexts/language-context'; // Import useLanguage
 
 interface UserRoleEditorProps {
   user: User;
@@ -177,6 +177,7 @@ const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; pe
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { t, language, setLanguage } = useLanguage(); // Use language context
   const {
     currentUser, users: mockUsers, updateUserRole,
     categories, addCategory,
@@ -201,21 +202,30 @@ export default function SettingsPage() {
   const [showDeleteConfirmBom, setShowDeleteConfirmBom] = useState<BillOfMaterial | null>(null);
 
 
-  const [appName, setAppName] = useState("Warehouse Edge");
+  const [appName, setAppName] = useState(t('app.name')); // Use translated app name
   const [cmsApiKey, setCmsApiKey] = useState("");
   const [cmsStoreUrl, setCmsStoreUrl] = useState("");
 
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    setAppName(t('app.name')); // Update appName when language changes
+  }, [t, language]);
 
   const handleSaveGeneralSettings = () => {
     toast({
-        title: "General Settings Saved (Simulated)",
-        description: `Application name set to "${appName}". Theme preference is managed separately.`
+        title: t('settings.general.saveToast.title'),
+        description: t('settings.general.saveToast.description', { appName: appName })
     });
   };
+
+  const handleSaveLanguage = () => {
+    toast({
+        title: t('settings.language.saveToast.title'),
+        description: t('settings.language.saveToast.description')
+    });
+  };
+
 
   const handleConnectCms = () => {
     if (!cmsApiKey || !cmsStoreUrl) {
@@ -273,31 +283,31 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
       <PageHeader
-        title="System Settings"
+        title={t('settings.page.title')}
         icon={SettingsIcon}
-        description="Configure application preferences, user roles, integrations, and notifications."
+        description={t('settings.page.description')}
       />
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 h-auto p-1">
-          <TabsTrigger value="general" className="text-xs sm:text-sm"><Palette className="mr-1 h-4 w-4 hidden sm:inline-flex" /> General</TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Users &amp; Roles</TabsTrigger>
-          <TabsTrigger value="categories" className="text-xs sm:text-sm"><Tag className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Categories</TabsTrigger>
-          <TabsTrigger value="warehouses" className="text-xs sm:text-sm"><WarehouseIcon className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Warehouses</TabsTrigger>
-          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><FileJson className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations &amp; BOM</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs sm:text-sm"><Bell className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Notifications</TabsTrigger>
-          <TabsTrigger value="language" className="text-xs sm:text-sm"><Globe className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Language</TabsTrigger>
+          <TabsTrigger value="general" className="text-xs sm:text-sm"><Palette className="mr-1 h-4 w-4 hidden sm:inline-flex" /> {t('settings.tabs.general')}</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> {t('settings.tabs.usersAndRoles')}</TabsTrigger>
+          <TabsTrigger value="categories" className="text-xs sm:text-sm"><Tag className="mr-1 h-4 w-4 hidden sm:inline-flex" /> {t('settings.tabs.categories')}</TabsTrigger>
+          <TabsTrigger value="warehouses" className="text-xs sm:text-sm"><WarehouseIcon className="mr-1 h-4 w-4 hidden sm:inline-flex" /> {t('settings.tabs.warehouses')}</TabsTrigger>
+          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><FileJson className="mr-1 h-4 w-4 hidden sm:inline-flex" /> {t('settings.tabs.integrationsAndBom')}</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs sm:text-sm"><Bell className="mr-1 h-4 w-4 hidden sm:inline-flex" /> {t('settings.tabs.notifications')}</TabsTrigger>
+          <TabsTrigger value="language" className="text-xs sm:text-sm"><Globe className="mr-1 h-4 w-4 hidden sm:inline-flex" /> {t('settings.tabs.language')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
           <Card>
             <CardHeader>
-              <CardTitle>General Settings</CardTitle>
-              <CardDescription>Manage basic application settings and appearance.</CardDescription>
+              <CardTitle>{t('settings.general.title')}</CardTitle>
+              <CardDescription>{t('settings.general.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="appName">Application Name</Label>
+                <Label htmlFor="appName">{t('settings.general.appNameLabel')}</Label>
                 <Input id="appName" value={appName} onChange={(e) => setAppName(e.target.value)} />
               </div>
               <div className="flex items-center space-x-2">
@@ -306,9 +316,9 @@ export default function SettingsPage() {
                   checked={resolvedTheme === 'dark'}
                   onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
                 />
-                <Label htmlFor="dark-mode">Enable Dark Mode</Label>
+                <Label htmlFor="dark-mode">{t('settings.general.darkModeLabel')}</Label>
               </div>
-              <Button onClick={handleSaveGeneralSettings}>Save Changes</Button>
+              <Button onClick={handleSaveGeneralSettings}>{t('settings.general.saveButton')}</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -570,7 +580,7 @@ export default function SettingsPage() {
                                         const rawMaterial = contextProducts.find(p => p.id === item.rawMaterialId);
                                         return (
                                         <span key={index} className="block">
-                                            {rawMaterial?.name || item.rawMaterialName || `ID: ${item.rawMaterialId}`} ({item.quantityNeeded})
+                                            {rawMaterial?.name || item.rawMaterialName || `ID: ${item.rawMaterialId}`} (Qty: {item.quantityNeeded})
                                         </span>
                                         );
                                     })}
@@ -693,24 +703,24 @@ export default function SettingsPage() {
         <TabsContent value="language">
           <Card>
             <CardHeader>
-              <CardTitle>Language Settings</CardTitle>
-              <CardDescription>Choose your preferred language for the application.</CardDescription>
+              <CardTitle>{t('settings.language.title')}</CardTitle>
+              <CardDescription>{t('settings.language.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="language-select">Application Language</Label>
-                <Select defaultValue="en">
+                <Label htmlFor="language-select">{t('settings.language.selectLabel')}</Label>
+                <Select value={language} onValueChange={(value) => setLanguage(value as 'en' | 'fa')}>
                   <SelectTrigger id="language-select" className="w-[280px]">
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="fa" disabled>فارسی (Persian) - Coming Soon</SelectItem>
+                    <SelectItem value="en">{t('settings.language.english')}</SelectItem>
+                    <SelectItem value="fa">{t('settings.language.persian')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-               <p className="text-sm text-muted-foreground">Multi-language support (English & Persian) is planned.</p>
-              <Button onClick={() => toast({title: "Simulated Save", description: "Language settings save action clicked."})}>Save Language</Button>
+               <p className="text-sm text-muted-foreground">{t('settings.language.comingSoon')}</p>
+              <Button onClick={handleSaveLanguage}>{t('settings.language.saveButton')}</Button>
             </CardContent>
           </Card>
         </TabsContent>

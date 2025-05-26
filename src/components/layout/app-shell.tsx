@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Warehouse, Settings, LogOut, UserCog, PanelLeft, Sun, Moon, Bell, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { APP_NAME, NAV_ITEMS } from '@/lib/constants';
+import { NAV_ITEMS } from '@/lib/constants'; // APP_NAME removed, will use translated version
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -41,6 +41,7 @@ import { useTheme } from "next-themes";
 import { useToast } from '@/hooks/use-toast';
 import { NewMaterialRequestModal } from '@/components/material-requests/new-request-modal';
 import type { MaterialRequest } from '@/lib/types';
+import { useLanguage } from '@/contexts/language-context'; // Import useLanguage
 
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, setCurrentUserById, users: availableUsers, addMaterialRequest } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
+  const { t, language } = useLanguage(); // Use language context
 
   const [clientPageTitle, setClientPageTitle] = useState('');
   const [isQuickRequestModalOpen, setIsQuickRequestModalOpen] = useState(false);
@@ -59,29 +61,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const calculatePageTitle = useCallback(() => {
+    // Attempt to translate known nav item labels
     for (const item of NAV_ITEMS) {
-      if (item.href === '/' && pathname === '/') return item.label;
-      if (item.href !== '/' && pathname.startsWith(item.href)) return item.label;
+      // Assuming nav items might have a translation key like `nav.${item.label.toLowerCase().replace(' ', '')}`
+      // This is a simplistic approach; a more robust one would involve mapping labels to keys.
+      const translationKey = `nav.${item.label.toLowerCase().replace(/\s+/g, '')}`;
+      const translatedLabel = t(translationKey, {}); // Provide empty params if none needed
+      
+      if (item.href === '/' && pathname === '/') return translatedLabel !== translationKey ? translatedLabel : item.label;
+      if (item.href !== '/' && pathname.startsWith(item.href)) return translatedLabel !== translationKey ? translatedLabel : item.label;
+      
       if (item.children) {
         for (const child of item.children) {
-          if (pathname.startsWith(child.href)) return child.label;
+          const childTranslationKey = `nav.${child.label.toLowerCase().replace(/\s+/g, '')}`;
+          const translatedChildLabel = t(childTranslationKey, {});
+          if (pathname.startsWith(child.href)) return translatedChildLabel !== childTranslationKey ? translatedChildLabel : child.label;
         }
       }
     }
     const segments = pathname.split('/').filter(Boolean);
-    return segments.length > 0
-      ? segments[segments.length - 1].charAt(0).toUpperCase() + segments[segments.length - 1].slice(1)
-      : APP_NAME;
-  }, [pathname]);
+    if (segments.length > 0) {
+        const lastSegment = segments[segments.length - 1];
+        // Attempt to translate common page titles if they aren't in NAV_ITEMS (e.g., dynamic product pages)
+        const pageKey = `page.${lastSegment.toLowerCase()}`;
+        const translatedPage = t(pageKey, {});
+        if (translatedPage !== pageKey) return translatedPage;
+        return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
+    }
+    return t('app.name'); // Default to translated app name
+  }, [pathname, t, language]); // Add language to dependencies
 
   useEffect(() => {
     setClientPageTitle(calculatePageTitle());
-  }, [calculatePageTitle]);
+  }, [calculatePageTitle, language]); // Also update title when language changes
 
   const handleQuickMaterialRequestSubmit = (
     data: Omit<MaterialRequest, 'id' | 'submissionDate' | 'status' | 'requesterId' | 'requesterName' | 'departmentCategory'>
   ) => {
-    if (currentUser) { // Ensure currentUser is not null
+    if (currentUser) { 
       addMaterialRequest(data);
       setIsQuickRequestModalOpen(false);
     } else {
@@ -101,26 +118,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Button variant="ghost" className="h-auto p-2 group-data-[collapsible=icon]:p-1.5" asChild>
             <Link href="/" className="flex items-center gap-2">
               <Warehouse className="h-7 w-7 text-primary group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6 transition-all" />
-              <span className="text-lg font-semibold group-data-[collapsible=icon]:hidden">{APP_NAME}</span>
+              <span className="text-lg font-semibold group-data-[collapsible=icon]:hidden">{t('app.name')}</span>
             </Link>
           </Button>
         </SidebarHeader>
         <SidebarContent className="p-2">
           <SidebarMenu>
-            {NAV_ITEMS.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
-                  tooltip={{ children: item.label, side: 'right', align: 'center' }}
-                >
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {NAV_ITEMS.map((item) => {
+              // Simplistic translation key generation, adapt as needed
+              const translationKey = `nav.${item.label.toLowerCase().replace(/\s+/g, '')}`;
+              const displayLabel = t(translationKey) !== translationKey ? t(translationKey) : item.label;
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
+                    tooltip={{ children: displayLabel, side: 'right', align: 'center' }}
+                  >
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{displayLabel}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="p-2 border-t min-h-[56px]">
@@ -130,10 +152,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <div className="flex flex-col h-screen">
           <header className="sticky top-0 z-30 flex h-[57px] items-center gap-1 border-b bg-background/80 backdrop-blur-sm px-4">
-            <SidebarTrigger className="md:hidden -ml-2"/> {/* Mobile toggle */}
-            <SidebarTrigger className="hidden md:flex"/> {/* Desktop toggle */}
+            <SidebarTrigger className="md:hidden -ml-2"/> 
+            <SidebarTrigger className="hidden md:flex"/> 
             <h1 className="text-xl font-semibold ml-2 flex-1 truncate">
-              {clientPageTitle ? clientPageTitle : <span className="opacity-0 select-none">{APP_NAME}</span>}
+              {clientPageTitle ? clientPageTitle : <span className="opacity-0 select-none">{t('app.name')}</span>}
             </h1>
 
             <div className="flex items-center gap-2 ml-auto">
@@ -207,7 +229,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <DropdownMenuItem asChild>
                     <Link href="/settings">
                       <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
+                      <span>{t('settings.page.title')}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem disabled>
@@ -222,7 +244,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {children}
           </main>
           <footer className="p-4 text-center text-xs text-muted-foreground border-t bg-background">
-            This is a test version. For the production version, please contact <a href="https://adschi.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AdsChi.com</a>.
+             <span dangerouslySetInnerHTML={{ __html: t('footer.text') }} />
           </footer>
         </div>
       </SidebarInset>

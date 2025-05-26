@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
@@ -7,9 +8,10 @@ import { AppShell } from '@/components/layout/app-shell';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from '@/contexts/auth-context';
+import { LanguageProvider } from '@/contexts/language-context'; // Import LanguageProvider
 
 export const metadata: Metadata = {
-  title: 'Warehouse Edge',
+  title: 'Warehouse Edge', // This will be static or handled by Next.js metadata features later
   description: 'Advanced Warehouse Management System',
 };
 
@@ -27,11 +29,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <SidebarProvider defaultOpen={true}> {/* Ensure sidebar is open by default */}
-              <AppShell>{children}</AppShell>
-            </SidebarProvider>
-          </AuthProvider>
+          <LanguageProvider> {/* Wrap AuthProvider with LanguageProvider */}
+            <AuthProvider>
+              <SidebarProvider defaultOpen={true}>
+                <AppShell>{children}</AppShell>
+              </SidebarProvider>
+            </AuthProvider>
+          </LanguageProvider>
           <Toaster />
         </ThemeProvider>
       </body>
