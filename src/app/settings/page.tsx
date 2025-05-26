@@ -15,8 +15,8 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import type { User, UserRole, Warehouse, Category, NotificationSetting, NotificationChannel } from '@/lib/types';
-import { USER_ROLES, MOCK_BOM_CONFIGURATIONS } from '@/lib/constants'; 
+import type { User, UserRole, Warehouse, Category, NotificationSetting, NotificationChannel, BillOfMaterial } from '@/lib/types';
+import { USER_ROLES, MOCK_BOM_CONFIGURATIONS, MOCK_PRODUCTS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { NewUserModal } from "@/components/settings/new-user-modal";
 import { NewCategoryModal } from "@/components/settings/new-category-modal";
@@ -31,7 +31,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +74,7 @@ function UserRoleEditor({ user, onRoleChange, currentUserRole, toastFn, categori
     (currentUserRole === 'WarehouseManager' && user.role !== 'Admin' && user.role !== 'WarehouseManager');
 
 
-  if (!canEditThisUserRole && user.id !== (useAuth().currentUser?.id)) { 
+  if (!canEditThisUserRole && user.id !== (useAuth().currentUser?.id)) {
      return <span className="text-sm text-muted-foreground">{user.role}</span>;
   }
    if (user.role === 'Admin' && currentUserRole !== 'Admin') {
@@ -173,24 +172,24 @@ const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; pe
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { 
-    currentUser, users: mockUsers, updateUserRole, 
-    categories, addCategory, 
+  const {
+    currentUser, users: mockUsers, updateUserRole,
+    categories, addCategory,
     warehouses, addWarehouse, updateWarehouse,
     notificationSettings, deleteNotificationSetting, addNotificationSetting, updateNotificationSetting
   } = useAuth();
   const { toast } = useToast();
-  
+
   const [mounted, setMounted] = useState(false);
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false);
   const [isNewEditWarehouseModalOpen, setIsNewEditWarehouseModalOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
-  
+
   const [isNewEditNotificationModalOpen, setIsNewEditNotificationModalOpen] = useState(false);
   const [editingNotificationSetting, setEditingNotificationSetting] = useState<NotificationSetting | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<NotificationSetting | null>(null);
-  
+
   const [appName, setAppName] = useState("Warehouse Edge");
   const [cmsApiKey, setCmsApiKey] = useState("");
   const [cmsStoreUrl, setCmsStoreUrl] = useState("");
@@ -206,7 +205,7 @@ export default function SettingsPage() {
         description: `Application name set to "${appName}". Theme preference is managed separately.`
     });
   };
-  
+
   const handleConnectCms = () => {
     if (!cmsApiKey || !cmsStoreUrl) {
         toast({ title: "CMS Connection Failed", description: "API Key and Store URL are required.", variant: "destructive" });
@@ -219,6 +218,15 @@ export default function SettingsPage() {
   const handleSyncCmsProducts = () => {
     toast({ title: "CMS Product Sync Simulated", description: "Fetching products from connected CMS... (This is a simulation)"});
     // In a real app, this would trigger a backend process
+  };
+
+  const handleManageBOMs = (action: 'add' | 'edit', bomId?: string) => {
+    const actionText = action === 'add' ? 'adding a new' : `editing existing (ID: ${bomId || 'N/A'})`;
+    toast({
+      title: `Simulated BOM Management`,
+      description: `In a real system, clicking this would open a dedicated modal/form for ${actionText} Bill of Materials configuration. You would select a finished good, then add raw materials and their required quantities.`,
+      duration: 10000
+    });
   };
 
 
@@ -241,7 +249,7 @@ export default function SettingsPage() {
     setEditingNotificationSetting(setting || null);
     setIsNewEditNotificationModalOpen(true);
   };
-  
+
   const handleDeleteNotification = (settingId: string) => {
     deleteNotificationSetting(settingId);
     toast({ title: "Notification Rule Deleted", description: `The notification rule has been deleted.`, variant: "destructive" });
@@ -263,7 +271,7 @@ export default function SettingsPage() {
           <TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Users &amp; Roles</TabsTrigger>
           <TabsTrigger value="categories" className="text-xs sm:text-sm"><Tag className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Categories</TabsTrigger>
           <TabsTrigger value="warehouses" className="text-xs sm:text-sm"><WarehouseIcon className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Warehouses</TabsTrigger>
-          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><Database className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations &amp; BOM</TabsTrigger>
+          <TabsTrigger value="integrations" className="text-xs sm:text-sm"><FileJson className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Integrations &amp; BOM</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm"><Bell className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Notifications</TabsTrigger>
           <TabsTrigger value="language" className="text-xs sm:text-sm"><Globe className="mr-1 h-4 w-4 hidden sm:inline-flex" /> Language</TabsTrigger>
         </TabsList>
@@ -318,7 +326,7 @@ export default function SettingsPage() {
                   {(Object.keys(ROLE_DEFINITIONS) as UserRole[]).map((roleKey) => {
                     const roleDef = ROLE_DEFINITIONS[roleKey];
                     return (
-                      <div key={roleKey} className="p-3 border rounded-md bg-muted/30">
+                      <div key={roleKey} className="p-3 border rounded-md bg-muted/20 shadow-sm">
                         <h4 className="font-semibold text-primary">{roleDef.name} <span className="text-xs text-muted-foreground">({roleKey})</span></h4>
                         <p className="text-xs text-muted-foreground mb-1">{roleDef.description}</p>
                         <ul className="list-disc list-inside pl-4 text-xs text-muted-foreground space-y-0.5">
@@ -359,7 +367,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="categories">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -417,7 +425,7 @@ export default function SettingsPage() {
                 <CardTitle>Warehouse Management</CardTitle>
                 <CardDescription>
                   {canManageWarehouses
-                    ? "Manage warehouse locations. Products are assigned via their `warehouseId`. (Simulated: Changes are not persistent)."
+                    ? "Manage warehouse locations and their assigned categories. Products are assigned via their `warehouseId`. (Simulated: Changes are not persistent)."
                     : "View warehouse locations. You do not have permission to manage them."}
                 </CardDescription>
               </div>
@@ -435,6 +443,7 @@ export default function SettingsPage() {
                       <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Location</TableHead>
+                      <TableHead>Managed Categories</TableHead>
                       {canManageWarehouses && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -444,13 +453,17 @@ export default function SettingsPage() {
                         <TableCell className="font-mono text-xs">{warehouse.id}</TableCell>
                         <TableCell className="font-medium">{warehouse.name}</TableCell>
                         <TableCell>{warehouse.location || 'N/A'}</TableCell>
+                        <TableCell className="text-xs">
+                          {warehouse.managedCategoryIds && warehouse.managedCategoryIds.length > 0
+                            ? warehouse.managedCategoryIds.map(catId => categories.find(c => c.id === catId)?.name || catId).join(', ')
+                            : 'All Categories'}
+                        </TableCell>
                         {canManageWarehouses && (
                           <TableCell className="text-right">
                             <Button variant="ghost" size="icon" onClick={() => handleOpenNewEditWarehouseModal(warehouse)}>
                               <Edit className="h-4 w-4" />
                               <span className="sr-only">Edit Warehouse</span>
                             </Button>
-                             {/* Delete button can be added here with confirmation */}
                           </TableCell>
                         )}
                       </TableRow>
@@ -467,7 +480,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground text-center py-4">No warehouses defined yet.</p>
               )}
                <p className="text-xs text-muted-foreground pt-4">
-                Products are assigned to warehouses using the 'warehouseId' field during CSV import, or through an 'Add/Edit Product' form (which includes a warehouse selection dropdown from the list above).
+                Products are assigned to warehouses using the 'warehouseId' field. Warehouses can be configured to manage specific categories of products (affecting product creation/editing forms).
               </p>
             </CardContent>
           </Card>
@@ -477,13 +490,13 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>CMS Integrations &amp; Bill of Materials (BOM)</CardTitle>
-              <CardDescription>Connect with e-commerce platforms (e.g., PrestaShop, WooCommerce, Shopify) and manage product compositions for automated inventory deduction.</CardDescription>
+              <CardDescription>Connect with e-commerce platforms and manage product compositions for automated inventory deduction based on sales.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-4 border rounded-lg bg-muted/20">
+              <div className="p-4 border rounded-lg bg-muted/20 shadow-inner">
                 <h3 className="text-md font-semibold mb-2 flex items-center"><Link2 className="mr-2 h-5 w-5 text-primary"/> Connect to CMS (e.g., PrestaShop)</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Enter your CMS API credentials to enable product synchronization and automated inventory updates based on sales.
+                  Enter your CMS API credentials to enable product synchronization and automated inventory updates. In a real system, this would involve secure backend communication.
                 </p>
                 <div className="space-y-3">
                   <div>
@@ -512,33 +525,60 @@ export default function SettingsPage() {
               </div>
 
               <div className="border-t pt-6">
-                <h3 className="text-md font-semibold mb-2 flex items-center"><FileJson className="mr-2 h-5 w-5 text-primary"/> Bill of Materials (BOM) Management</h3>
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-md font-semibold flex items-center"><FileJson className="mr-2 h-5 w-5 text-primary"/> Bill of Materials (BOM) Management</h3>
+                    {canManageIntegrations && (
+                        <Button variant="outline" size="sm" onClick={() => handleManageBOMs('add')}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add New BOM (Simulated)
+                        </Button>
+                    )}
+                </div>
                 <p className="text-sm text-muted-foreground mb-3">
-                  After syncing products from your CMS, define the raw materials and quantities from your WMS inventory needed to produce each CMS product. This is crucial for automatic deduction from inventory upon CMS sales.
-                  <br/> (Currently showing mock BOM configurations. Full BOM management requires backend development.)
+                  Define the raw materials and quantities needed to produce each finished good. This is crucial for automatic inventory deduction upon CMS sales.
                 </p>
                 {MOCK_BOM_CONFIGURATIONS.length > 0 ? (
-                  <div className="space-y-2 text-xs border rounded-md p-3 bg-muted/20 max-h-60 overflow-y-auto">
-                    <p className="font-medium text-muted-foreground">Example BOM Configurations (Read-only):</p>
-                    {MOCK_BOM_CONFIGURATIONS.map(bom => (
-                      <div key={bom.productId} className="p-2 border-b last:border-b-0">
-                        <span className="font-semibold text-foreground">{bom.productName || bom.productId}:</span>
-                        <ul className="list-disc list-inside ml-4">
-                          {bom.items.map(item => (
-                            <li key={item.rawMaterialId}>
-                              {item.quantityNeeded} x {item.rawMaterialName || item.rawMaterialId}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {MOCK_BOM_CONFIGURATIONS.map((bom, bomIndex) => {
+                      const finishedGood = MOCK_PRODUCTS.find(p => p.id === bom.productId);
+                      return (
+                        <Card key={bom.productId} className="shadow-md">
+                          <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-base">
+                              Finished Good: {finishedGood?.name || bom.productName || bom.productId}
+                            </CardTitle>
+                            {canManageIntegrations && (
+                              <Button variant="ghost" size="sm" onClick={() => handleManageBOMs('edit', bom.productId)}>
+                                <Edit className="h-4 w-4 mr-1" /> Edit
+                              </Button>
+                            )}
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-xs text-muted-foreground mb-2">Requires the following raw materials:</p>
+                            {bom.items.length > 0 ? (
+                              <ul className="list-disc list-inside pl-4 space-y-1 text-sm">
+                                {bom.items.map((item, itemIndex) => {
+                                  const rawMaterial = MOCK_PRODUCTS.find(p => p.id === item.rawMaterialId);
+                                  return (
+                                    <li key={`${bom.productId}-${item.rawMaterialId}-${itemIndex}`}>
+                                      {item.quantityNeeded} x {rawMaterial?.name || item.rawMaterialName || item.rawMaterialId}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No raw materials defined for this BOM.</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No mock BOMs configured yet.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No BOM configurations defined yet.</p>
                 )}
-                 <Button variant="outline" size="sm" className="mt-3" onClick={() => toast({title: "Simulated Action", description: "Manage BOMs functionality would open a dedicated interface."})} disabled={!canManageIntegrations}>
-                    Manage BOMs (Simulated)
-                </Button>
+                 {!canManageIntegrations && MOCK_BOM_CONFIGURATIONS.length > 0 && (
+                   <p className="text-xs text-destructive pt-2 text-center">You do not have permission to manage BOM configurations.</p>
+                 )}
               </div>
             </CardContent>
           </Card>
@@ -602,10 +642,10 @@ export default function SettingsPage() {
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Edit Rule</span>
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(setting)} className="text-destructive hover:text-destructive/90">
+                                <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(setting)} className="text-destructive hover:text-destructive/90">
                                   <Trash2 className="h-4 w-4" />
                                   <span className="sr-only">Delete Rule</span>
-                              </Button>
+                                </Button>
                             </TableCell>
                           )}
                         </TableRow>
@@ -655,8 +695,8 @@ export default function SettingsPage() {
       </Tabs>
       <NewUserModal isOpen={isNewUserModalOpen} onClose={() => setIsNewUserModalOpen(false)} />
       <NewCategoryModal isOpen={isNewCategoryModalOpen} onClose={() => setIsNewCategoryModalOpen(false)} />
-      <NewEditWarehouseModal 
-        isOpen={isNewEditWarehouseModalOpen} 
+      <NewEditWarehouseModal
+        isOpen={isNewEditWarehouseModalOpen}
         onClose={() => {
           setIsNewEditWarehouseModalOpen(false);
           setEditingWarehouse(null);
@@ -699,4 +739,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

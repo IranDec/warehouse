@@ -6,11 +6,11 @@ import React, { useState, useMemo } from 'react';
 import { PageHeader } from "@/components/common/page-header";
 import { DateRangePicker } from "@/components/common/date-range-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE, MOCK_USER_ACTIVITIES, MOCK_USERS } from '@/lib/constants';
-import type { InventoryTransaction, Product, Category, InventoryTransactionType, UserActivityLog } from '@/lib/types';
+import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE, MOCK_USER_ACTIVITIES } from '@/lib/constants'; // MOCK_USERS removed, using users from AuthContext
+import type { InventoryTransaction, Product, Category, InventoryTransactionType, UserActivityLog, User } from '@/lib/types';
 import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon, AlertTriangle, Users as UsersIcon } from "lucide-react";
 import type { DateRange } from 'react-day-picker';
-import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { DataTable } from "@/components/common/data-table";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,7 +74,7 @@ const CHART_COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--c
 
 export default function ReportsPage() {
   const { toast } = useToast();
-  const { categories: authCategories, warehouses, products: contextProducts, inventoryTransactions: contextTransactions, users: authUsers } = useAuth(); 
+  const { categories: authCategories, warehouses, products: contextProducts, inventoryTransactions: contextTransactions, users: authUsers } = useAuth();
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     return {
@@ -89,7 +89,7 @@ export default function ReportsPage() {
 
 
   const availableProductsForFilter = useMemo(() => {
-    if (filterCategory === ALL_FILTER_VALUE) {
+    if (filterCategory === ALL_FILTER_VALUE || !filterCategory) { // Added !filterCategory for robustness
       return contextProducts;
     }
     return contextProducts.filter(p => p.category === filterCategory);
@@ -102,11 +102,11 @@ export default function ReportsPage() {
     return contextTransactions.filter(t => {
       const transactionDate = new Date(t.date);
       const dateMatch = isWithinInterval(transactionDate, { start: dateRange.from as Date, end: dateRange.to as Date });
-      
+
       const productDetails = contextProducts.find(p => p.id === t.productId);
-      const categoryMatch = filterCategory === ALL_FILTER_VALUE || (productDetails && productDetails.category === filterCategory);
-      const productMatch = filterProduct === ALL_FILTER_VALUE || t.productId === filterProduct;
-      const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || t.warehouseId === filterWarehouse;
+      const categoryMatch = filterCategory === ALL_FILTER_VALUE || !filterCategory ? true : (productDetails && productDetails.category === filterCategory);
+      const productMatch = filterProduct === ALL_FILTER_VALUE || !filterProduct ? true : t.productId === filterProduct;
+      const warehouseMatch = filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : t.warehouseId === filterWarehouse;
 
       return dateMatch && categoryMatch && productMatch && warehouseMatch;
     });
@@ -123,13 +123,13 @@ export default function ReportsPage() {
         distinctProducts: distinctProductIds.size,
       };
     };
-    
+
     return {
       damaged: calculateStats(['Damage']),
       returned: calculateStats(['Return']),
       inflow: calculateStats(['Inflow', 'Initial']),
       outflow: calculateStats(['Outflow']),
-      adjustment: calculateStats(['Adjustment']), 
+      adjustment: calculateStats(['Adjustment']),
     };
   }, [filteredTransactions]);
 
@@ -163,7 +163,7 @@ export default function ReportsPage() {
           productStat.totalDamaged += Math.abs(transaction.quantityChange);
           break;
         case 'Return':
-          productStat.totalReturned += transaction.quantityChange; 
+          productStat.totalReturned += transaction.quantityChange;
           break;
       }
     });
@@ -171,33 +171,33 @@ export default function ReportsPage() {
   }, [filteredTransactions]);
 
   const productReportColumns: ColumnDef<ProductReportItem>[] = [
-    { 
-      accessorKey: "productName", 
+    {
+      accessorKey: "productName",
       header: "Product Name",
       cell: ({ row }) => <div className="font-medium">{row.original.productName}</div>
     },
-    { 
-      accessorKey: "totalInflow", 
+    {
+      accessorKey: "totalInflow",
       header: "Total Inflow",
       cell: ({ row }) => <span className="text-green-600">+{row.original.totalInflow}</span>
     },
-    { 
-      accessorKey: "totalOutflow", 
+    {
+      accessorKey: "totalOutflow",
       header: "Total Outflow",
       cell: ({ row }) => <span className="text-red-600">-{row.original.totalOutflow}</span>
     },
-    { 
-      accessorKey: "totalDamaged", 
+    {
+      accessorKey: "totalDamaged",
       header: "Damaged",
       cell: ({ row }) => <span className="text-orange-600">{row.original.totalDamaged}</span>
     },
-    { 
-      accessorKey: "totalReturned", 
+    {
+      accessorKey: "totalReturned",
       header: "Returned",
       cell: ({ row }) => <span className="text-blue-600">{row.original.totalReturned}</span>
     },
-    { 
-      accessorKey: "netChange", 
+    {
+      accessorKey: "netChange",
       header: "Net Change",
       cell: ({ row }) => {
         const netChange = row.original.netChange;
@@ -212,45 +212,45 @@ export default function ReportsPage() {
   }, [filteredTransactions]);
 
   const defectReturnColumns: ColumnDef<InventoryTransaction>[] = [
-    { 
-        accessorKey: "productName", 
+    {
+        accessorKey: "productName",
         header: "Product Name",
         cell: ({ row }) => <div className="font-medium">{row.original.productName}</div>
     },
-    { 
-        accessorKey: "type", 
+    {
+        accessorKey: "type",
         header: "Type",
         cell: ({ row }) => (
-            <Badge variant={row.original.type === 'Damage' ? 'destructive' : 'secondary'} 
+            <Badge variant={row.original.type === 'Damage' ? 'destructive' : 'secondary'}
                    className={row.original.type === 'Damage' ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-800/30 dark:text-red-300 dark:border-red-700' : 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-800/30 dark:text-blue-300 dark:border-blue-700'}>
                 {row.original.type}
             </Badge>
         )
     },
-    { 
-        accessorKey: "quantityChange", 
+    {
+        accessorKey: "quantityChange",
         header: "Quantity",
         cell: ({ row }) => {
             const quantity = row.original.quantityChange;
             const type = row.original.type;
-            if (type === 'Damage') return <span className="text-red-600">{quantity}</span>; 
-            if (type === 'Return') return <span className="text-green-600">+{quantity}</span>; 
+            if (type === 'Damage') return <span className="text-red-600">{quantity}</span>;
+            if (type === 'Return') return <span className="text-green-600">+{quantity}</span>;
             return <span>{quantity}</span>;
         }
     },
-    { 
-        accessorKey: "date", 
+    {
+        accessorKey: "date",
         header: "Date",
         cell: ({ row }) => <ClientSideFormattedDate dateString={row.original.date} formatString="PP" />
     },
     { accessorKey: "user", header: "User/System" },
-    { 
-        accessorKey: "reason", 
+    {
+        accessorKey: "reason",
         header: "Reason/Notes",
         cell: ({ row }) => <div className="max-w-[200px] truncate" title={row.original.reason}>{row.original.reason || 'N/A'}</div>
     },
-    { 
-        accessorKey: "warehouseName", 
+    {
+        accessorKey: "warehouseName",
         header: "Warehouse",
         cell: ({ row }) => row.original.warehouseName || warehouses.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A'
     },
@@ -258,33 +258,31 @@ export default function ReportsPage() {
 
   const barChartData = useMemo(() => {
     return productBreakdown.map(item => ({
-      name: item.productName.length > 15 ? `${item.productName.substring(0,15)}...` : item.productName, 
+      name: item.productName.length > 15 ? `${item.productName.substring(0,15)}...` : item.productName,
       Inflow: item.totalInflow,
       Outflow: item.totalOutflow,
-    })).slice(0, 10); 
+    })).slice(0, 10);
   }, [productBreakdown]);
 
   const pieChartData = useMemo(() => {
-    const typeCounts: Record<InventoryTransaction['type'], number> = {
-      Inflow: 0, Initial: 0, Outflow: 0, Damage: 0, Return: 0, Adjustment: 0,
-    };
+    const typeCounts: Record<string, number> = {}; // Use string for key flexibility
     filteredTransactions.forEach(t => {
       typeCounts[t.type] = (typeCounts[t.type] || 0) + Math.abs(t.quantityChange);
     });
     return Object.entries(typeCounts)
-      .filter(([, value]) => value > 0) 
+      .filter(([, value]) => value > 0)
       .map(([name, value]) => ({ name, value }));
   }, [filteredTransactions]);
 
   const lowStockProducts = useMemo(() => {
-    return contextProducts.filter(p => 
-        p.quantity <= p.reorderLevel || 
-        p.status === 'Low Stock' || 
+    return contextProducts.filter(p =>
+        p.quantity <= p.reorderLevel ||
+        p.status === 'Low Stock' ||
         p.status === 'Out of Stock'
-    ).filter(p => { 
-        return filterWarehouse === ALL_FILTER_VALUE || p.warehouseId === filterWarehouse;
-    }).filter(p => { 
-        return filterCategory === ALL_FILTER_VALUE || p.category === filterCategory;
+    ).filter(p => {
+        return filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : p.warehouseId === filterWarehouse; // Added !filterWarehouse
+    }).filter(p => {
+        return filterCategory === ALL_FILTER_VALUE || !filterCategory ? true : p.category === filterCategory; // Added !filterCategory
     });
   }, [filterWarehouse, filterCategory, contextProducts]);
 
@@ -295,8 +293,8 @@ export default function ReportsPage() {
     { accessorKey: "warehouseId", header: "Warehouse", cell: ({row}) => warehouses.find(wh => wh.id === row.original.warehouseId)?.name || 'N/A' },
     { accessorKey: "quantity", header: "Current Qty", cell: ({row}) => <span className="font-semibold text-red-600">{row.original.quantity}</span> },
     { accessorKey: "reorderLevel", header: "Reorder Lvl" },
-    { 
-      accessorKey: "status", 
+    {
+      accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
         const status = row.original.status;
@@ -318,7 +316,7 @@ export default function ReportsPage() {
     return MOCK_USER_ACTIVITIES.filter(activity => {
       const activityDate = new Date(activity.timestamp);
       const dateMatch = isWithinInterval(activityDate, { start: dateRange.from as Date, end: dateRange.to as Date });
-      const userMatch = filterUserActivity === ALL_FILTER_VALUE || activity.userId === filterUserActivity;
+      const userMatch = filterUserActivity === ALL_FILTER_VALUE || !filterUserActivity ? true : activity.userId === filterUserActivity; // Added !filterUserActivity
       return dateMatch && userMatch;
     });
   }, [dateRange, filterUserActivity]);
@@ -346,32 +344,94 @@ export default function ReportsPage() {
     },
   ];
 
-  const handleExportProductMovement = () => {
-    if (productBreakdown.length === 0) {
-      toast({ title: "No data to export", description: "Please refine your filters or select a date range with data." });
-      return;
-    }
-    const csvData = Papa.unparse(productBreakdown.map(item => ({
-      "Product Name": item.productName,
-      "Total Inflow": item.totalInflow,
-      "Total Outflow": item.totalOutflow,
-      "Damaged": item.totalDamaged,
-      "Returned": item.totalReturned,
-      "Net Change": item.netChange,
-    })));
+  const generateCsvData = (data: any[], headers: {key: string, label: string}[]) => {
+    const mappedData = data.map(item => {
+      const row: Record<string, any> = {};
+      headers.forEach(header => {
+        row[header.label] = item[header.key];
+      });
+      return row;
+    });
+    return Papa.unparse(mappedData);
+  };
+
+  const downloadCsv = (csvData: string, filename: string) => {
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
       link.setAttribute("href", url);
-      link.setAttribute("download", `product_movement_report_${dateRange?.from ? new Date(dateRange.from).toLocaleDateString() : ''}_${dateRange?.to ? new Date(dateRange.to).toLocaleDateString() : ''}.csv`);
+      link.setAttribute("download", filename);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
-    toast({ title: "Export Successful", description: "Product movement report has been downloaded." });
+    toast({ title: "Export Successful", description: `${filename} has been downloaded.` });
   };
+
+  const handleExportProductMovement = () => {
+    if (productBreakdown.length === 0) {
+      toast({ title: "No data to export", description: "Please refine your filters or select a date range with data." });
+      return;
+    }
+    const headers = [
+      { key: "productName", label: "Product Name" },
+      { key: "totalInflow", label: "Total Inflow" },
+      { key: "totalOutflow", label: "Total Outflow" },
+      { key: "totalDamaged", label: "Damaged" },
+      { key: "totalReturned", label: "Returned" },
+      { key: "netChange", label: "Net Change" },
+    ];
+    const csvData = generateCsvData(productBreakdown, headers);
+    downloadCsv(csvData, `product_movement_report_${dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : ''}_${dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}.csv`);
+  };
+
+  const handleExportDefectReturn = () => {
+    if (defectReturnTransactions.length === 0) {
+      toast({ title: "No data to export", description: "Please refine your filters for defect/return data." });
+      return;
+    }
+     const headers = [
+      { key: "productName", label: "Product Name" },
+      { key: "type", label: "Type" },
+      { key: "quantityChange", label: "Quantity" },
+      { key: "date", label: "Date" },
+      { key: "user", label: "User/System" },
+      { key: "reason", label: "Reason/Notes" },
+      { key: "warehouseName", label: "Warehouse" },
+    ];
+    const dataToExport = defectReturnTransactions.map(t => ({
+        ...t,
+        date: t.date ? format(parseISO(t.date), 'yyyy-MM-dd') : '',
+        warehouseName: t.warehouseName || warehouses.find(wh => wh.id === t.warehouseId)?.name || 'N/A'
+    }));
+    const csvData = generateCsvData(dataToExport, headers);
+    downloadCsv(csvData, `defect_return_report_${dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : ''}_${dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}.csv`);
+  };
+
+  const handleExportLowStock = () => {
+    if (lowStockProducts.length === 0) {
+      toast({ title: "No data to export", description: "No low stock products found for current filters." });
+      return;
+    }
+    const headers = [
+      { key: "name", label: "Product Name" },
+      { key: "sku", label: "SKU" },
+      { key: "category", label: "Category" },
+      { key: "warehouseName", label: "Warehouse" },
+      { key: "quantity", label: "Current Qty" },
+      { key: "reorderLevel", label: "Reorder Lvl" },
+      { key: "status", label: "Status" },
+    ];
+     const dataToExport = lowStockProducts.map(p => ({
+        ...p,
+        warehouseName: warehouses.find(wh => wh.id === p.warehouseId)?.name || 'N/A'
+    }));
+    const csvData = generateCsvData(dataToExport, headers);
+    downloadCsv(csvData, `low_stock_report_${dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : ''}_${dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}.csv`);
+  };
+
 
   const handleClearFilters = () => {
     setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
@@ -397,7 +457,7 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row flex-wrap gap-2 items-center">
             <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-            <Select value={filterWarehouse} onValueChange={setFilterWarehouse}>
+            <Select value={filterWarehouse} onValueChange={(value) => setFilterWarehouse(value === ALL_FILTER_VALUE ? "" : value)}>
               <SelectTrigger className="w-full md:w-[180px] h-9">
                 <SelectValue placeholder="All Warehouses" />
               </SelectTrigger>
@@ -406,7 +466,7 @@ export default function ReportsPage() {
                 {warehouses.map(wh => <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filterCategory} onValueChange={(value) => {setFilterCategory(value); setFilterProduct(ALL_FILTER_VALUE);}}>
+            <Select value={filterCategory} onValueChange={(value) => {setFilterCategory(value === ALL_FILTER_VALUE ? "" : value); setFilterProduct(ALL_FILTER_VALUE);}}>
               <SelectTrigger className="w-full md:w-[180px] h-9">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
@@ -415,7 +475,7 @@ export default function ReportsPage() {
                 {authCategories.map(cat => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filterProduct} onValueChange={setFilterProduct} disabled={availableProductsForFilter.length === 0 && filterCategory === ALL_FILTER_VALUE}>
+            <Select value={filterProduct} onValueChange={(value) => setFilterProduct(value === ALL_FILTER_VALUE ? "" : value)} disabled={availableProductsForFilter.length === 0 && (filterCategory === ALL_FILTER_VALUE || !filterCategory) }>
               <SelectTrigger className="w-full md:w-[200px] h-9">
                 <SelectValue placeholder="All Products" />
               </SelectTrigger>
@@ -424,7 +484,7 @@ export default function ReportsPage() {
                 {availableProductsForFilter.map(prod => <SelectItem key={prod.id} value={prod.id}>{prod.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filterUserActivity} onValueChange={setFilterUserActivity}>
+            <Select value={filterUserActivity} onValueChange={(value) => setFilterUserActivity(value === ALL_FILTER_VALUE ? "" : value)}>
               <SelectTrigger className="w-full md:w-[200px] h-9">
                 <SelectValue placeholder="All Users (Activity)" />
               </SelectTrigger>
@@ -448,29 +508,29 @@ export default function ReportsPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard 
-          title="Total Damaged" 
-          value={overallStats.damaged} 
-          description="Items marked as damaged" 
-          icon={PackageX} 
+        <StatCard
+          title="Total Damaged"
+          value={overallStats.damaged}
+          description="Items marked as damaged"
+          icon={PackageX}
         />
-        <StatCard 
-          title="Total Returned" 
-          value={overallStats.returned} 
-          description="Items returned to inventory" 
-          icon={Undo2} 
+        <StatCard
+          title="Total Returned"
+          value={overallStats.returned}
+          description="Items returned to inventory"
+          icon={Undo2}
         />
-        <StatCard 
-          title="Total Stock Inflow" 
-          value={overallStats.inflow} 
-          description="New items & initial stock" 
-          icon={PackagePlus} 
+        <StatCard
+          title="Total Stock Inflow"
+          value={overallStats.inflow}
+          description="New items & initial stock"
+          icon={PackagePlus}
         />
-        <StatCard 
-          title="Total Stock Outflow" 
-          value={overallStats.outflow} 
-          description="Items used or sold" 
-          icon={PackageMinus} 
+        <StatCard
+          title="Total Stock Outflow"
+          value={overallStats.outflow}
+          description="Items used or sold"
+          icon={PackageMinus}
         />
       </div>
 
@@ -553,11 +613,16 @@ export default function ReportsPage() {
           )}
         </CardContent>
       </Card>
-      
+
       <Card className="mt-6 shadow-md">
-        <CardHeader>
-            <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-yellow-500" /> Defect &amp; Return Report</CardTitle>
-            <CardDescription>Details of items marked as damaged or returned within the selected filters.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-yellow-500" /> Defect &amp; Return Report</CardTitle>
+                <CardDescription>Details of items marked as damaged or returned within the selected filters.</CardDescription>
+            </div>
+            <Button onClick={handleExportDefectReturn} variant="outline" size="sm" disabled={defectReturnTransactions.length === 0}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
         </CardHeader>
         <CardContent>
             {defectReturnTransactions.length > 0 ? (
@@ -569,9 +634,14 @@ export default function ReportsPage() {
       </Card>
 
       <Card className="mt-6 shadow-md">
-        <CardHeader>
-            <CardTitle>Low Stock / Reorder Needed Report</CardTitle>
-            <CardDescription>Products that are below their reorder level or marked as low/out of stock. Applies active warehouse/category filters.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-orange-500" />Low Stock / Reorder Needed Report</CardTitle>
+                <CardDescription>Products that are below their reorder level or marked as low/out of stock. Applies active warehouse/category filters.</CardDescription>
+            </div>
+            <Button onClick={handleExportLowStock} variant="outline" size="sm" disabled={lowStockProducts.length === 0}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
         </CardHeader>
         <CardContent>
             {lowStockProducts.length > 0 ? (
