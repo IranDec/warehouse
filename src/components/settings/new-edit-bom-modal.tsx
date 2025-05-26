@@ -2,7 +2,7 @@
 // src/components/settings/new-edit-bom-modal.tsx
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, PlusCircle } from "lucide-react";
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import type { BillOfMaterial, BillOfMaterialItem, Product } from '@/lib/types';
+import type { BillOfMaterial, Product } from '@/lib/types';
 
 const bomItemSchema = z.object({
   rawMaterialId: z.string().min(1, "Raw material is required"),
@@ -40,19 +40,18 @@ interface NewEditBomModalProps {
   isOpen: boolean;
   onClose: () => void;
   existingBom?: BillOfMaterial | null;
-  allProducts: Product[]; // To populate product dropdowns
+  // We'll get allProducts from AuthContext now
 }
 
 export function NewEditBomModal({ 
     isOpen, 
     onClose, 
     existingBom,
-    allProducts
 }: NewEditBomModalProps) {
   const { toast } = useToast();
-  const { addBomConfiguration, updateBomConfiguration } = useAuth();
+  const { products: allProducts, addBomConfiguration, updateBomConfiguration } = useAuth();
 
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<BomFormData>({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<BomFormData>({
     resolver: zodResolver(bomFormSchema),
     defaultValues: {
       productId: '',
@@ -65,8 +64,8 @@ export function NewEditBomModal({
     name: "items",
   });
 
-  const finishedGoods = allProducts.filter(p => p.category === 'Finished Goods');
-  const rawMaterials = allProducts.filter(p => p.category !== 'Finished Goods'); // Simple filter for now
+  const finishedGoods = useMemo(() => allProducts.filter(p => p.category === 'Finished Goods'), [allProducts]);
+  const rawMaterials = useMemo(() => allProducts.filter(p => p.category !== 'Finished Goods'), [allProducts]);
 
   useEffect(() => {
     if (isOpen) {
@@ -97,12 +96,12 @@ export function NewEditBomModal({
 
     const bomToSave: BillOfMaterial = {
       productId: data.productId,
-      productName: finishedGoodProduct.name,
+      productName: finishedGoodProduct.name, // Ensure productName is set
       items: data.items.map(item => {
         const rawMaterialProduct = allProducts.find(p => p.id === item.rawMaterialId);
         return {
           rawMaterialId: item.rawMaterialId,
-          rawMaterialName: rawMaterialProduct?.name || item.rawMaterialId,
+          rawMaterialName: rawMaterialProduct?.name || item.rawMaterialId, // Ensure rawMaterialName is set
           quantityNeeded: item.quantityNeeded,
         };
       }),
@@ -112,6 +111,12 @@ export function NewEditBomModal({
       updateBomConfiguration(bomToSave);
       toast({ title: "BOM Updated", description: `BOM for ${bomToSave.productName} has been updated.` });
     } else {
+      // Check if BOM already exists before adding
+      const { bomConfigurations } = useAuth(); // Get current BOMs
+      if (bomConfigurations.find(b => b.productId === bomToSave.productId)) {
+        toast({ title: "Error", description: `BOM for product ${bomToSave.productName} already exists. Please edit the existing one.`, variant: "destructive"});
+        return;
+      }
       addBomConfiguration(bomToSave);
       toast({ title: "BOM Added", description: `New BOM for ${bomToSave.productName} has been added.` });
     }
@@ -119,7 +124,7 @@ export function NewEditBomModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{existingBom ? "Edit Bill of Materials" : "Add New Bill of Materials"}</DialogTitle>
@@ -144,6 +149,7 @@ export function NewEditBomModal({
                         {product.name} (SKU: {product.sku})
                       </SelectItem>
                     ))}
+                    {finishedGoods.length === 0 && <SelectItem value="none" disabled>No finished goods available</SelectItem>}
                   </SelectContent>
                 </Select>
               )}
@@ -154,6 +160,8 @@ export function NewEditBomModal({
           <div className="space-y-2">
             <Label className="text-base font-semibold">Raw Material Items</Label>
             {errors.items?.root && <p className="text-xs text-destructive pt-1">{errors.items.root.message}</p>}
+            {errors.items && !errors.items.root && <p className="text-xs text-destructive pt-1">Please correct errors in raw material items.</p>}
+
             <div className="space-y-3 max-h-[calc(90vh-450px)] sm:max-h-[calc(90vh-400px)] overflow-y-auto pr-1 border rounded-md p-3 bg-muted/20 shadow-inner">
               {fields.map((field, index) => (
                 <div key={field.id} className="flex flex-col sm:flex-row items-start sm:items-end gap-2 p-3 border rounded-md bg-card shadow-sm">
@@ -173,6 +181,7 @@ export function NewEditBomModal({
                                 {product.name} (SKU: {product.sku})
                               </SelectItem>
                             ))}
+                             {rawMaterials.length === 0 && <SelectItem value="none" disabled>No raw materials available</SelectItem>}
                           </SelectContent>
                         </Select>
                       )}

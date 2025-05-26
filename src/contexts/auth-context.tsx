@@ -48,12 +48,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>(MOCK_WAREHOUSES);
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSetting[]>(MOCK_NOTIFICATION_SETTINGS);
-  const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS);
-  const [productsData, setProductsData] = useState<Product[]>(MOCK_PRODUCTS); 
-  const [inventoryTransactionsData, setInventoryTransactionsData] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
-  const [bomConfigurations, setBomConfigurations] = useState<BillOfMaterial[]>(MOCK_BOM_CONFIGURATIONS);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>(MOCK_WAREHOUSES); 
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSetting[]>(MOCK_NOTIFICATION_SETTINGS); 
+  const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>(MOCK_MATERIAL_REQUESTS); 
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS); 
+  const [inventoryTransactions, setInventoryTransactions] = useState<InventoryTransaction[]>(MOCK_INVENTORY_TRANSACTIONS);
+  const [bomConfigurations, setBomConfigurations] = useState<BillOfMaterial[]>(MOCK_BOM_CONFIGURATIONS); 
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     return users.find(u => u.id === DEFAULT_CURRENT_USER_ID) || users[0] || null;
@@ -157,17 +157,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateMaterialRequest = (updatedRequest: MaterialRequest) => {
     setMaterialRequests(prev => prev.map(req => (req.id === updatedRequest.id ? updatedRequest : req)));
-    // toast({ title: "Material Request Updated", description: `Request ${updatedRequest.id} has been updated.`}); // Already handled in page
   };
 
   const addBomConfiguration = (bom: BillOfMaterial) => {
     setBomConfigurations(prevBoms => {
-      // Check if BOM for this product already exists, if so, it's an update, otherwise add
       const existingIndex = prevBoms.findIndex(b => b.productId === bom.productId);
       if (existingIndex > -1) {
-        const updatedBoms = [...prevBoms];
-        updatedBoms[existingIndex] = bom;
-        return updatedBoms;
+        toast({ title: "Info", description: `BOM for product ID ${bom.productId} already exists. Please edit the existing one.`, variant: "default"});
+        return prevBoms; 
       }
       return [...prevBoms, bom];
     });
@@ -192,21 +189,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       addNewUser, 
       categories, 
       addCategory,
-      warehouses,
+      warehouses: warehouses, // Use consistent name
       addWarehouse,
       updateWarehouse,
-      notificationSettings,
+      notificationSettings: notificationSettings, 
       addNotificationSetting,
       updateNotificationSetting,
       deleteNotificationSetting,
-      materialRequests,
+      materialRequests: materialRequests, 
       addMaterialRequest,
       updateMaterialRequest,
-      products: productsData,
-      setProducts: setProductsData,
-      inventoryTransactions: inventoryTransactionsData,
-      setInventoryTransactions: setInventoryTransactionsData,
-      bomConfigurations,
+      products: products,
+      setProducts: setProducts,
+      inventoryTransactions: inventoryTransactions,
+      setInventoryTransactions: setInventoryTransactions,
+      bomConfigurations: bomConfigurations, 
       addBomConfiguration,
       updateBomConfiguration,
       deleteBomConfiguration,
@@ -223,5 +220,4 @@ export const useAuth = () => {
   }
   return context;
 };
-
     

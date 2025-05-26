@@ -238,7 +238,7 @@ export default function SettingsPage() {
   const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageNotifications = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageIntegrations = currentUser?.role === 'Admin'; 
-  const canManageBOMs = currentUser?.role === 'Admin';
+  const canManageBOMs = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager'; // Allowing WH Manager too
 
   const handleOpenNewEditWarehouseModal = (warehouse?: Warehouse) => {
     setEditingWarehouse(warehouse || null);
@@ -757,6 +757,7 @@ export default function SettingsPage() {
             </AlertDialogContent>
         </AlertDialog>
       )}
+
       {showDeleteConfirmBom && (
         <AlertDialog open={!!showDeleteConfirmBom} onOpenChange={() => setShowDeleteConfirmBom(null)}>
             <AlertDialogContent>
@@ -785,7 +786,6 @@ export default function SettingsPage() {
           setEditingBom(null);
         }}
         existingBom={editingBom}
-        allProducts={contextProducts}
       />
     </div>
   );
