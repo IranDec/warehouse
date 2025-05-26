@@ -6,11 +6,11 @@ import React, { useState, useMemo } from 'react';
 import { PageHeader } from "@/components/common/page-header";
 import { DateRangePicker } from "@/components/common/date-range-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE, MOCK_USER_ACTIVITIES } from '@/lib/constants'; // MOCK_USERS removed, using users from AuthContext
+import { MOCK_INVENTORY_TRANSACTIONS, MOCK_PRODUCTS, ALL_FILTER_VALUE, MOCK_USER_ACTIVITIES } from '@/lib/constants'; 
 import type { InventoryTransaction, Product, Category, InventoryTransactionType, UserActivityLog, User } from '@/lib/types';
 import { BarChart3, PackageX, Undo2, PackagePlus, PackageMinus, AlertCircle, Download, Filter as FilterIcon, AlertTriangle, Users as UsersIcon } from "lucide-react";
 import type { DateRange } from 'react-day-picker';
-import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns';
 import { DataTable } from "@/components/common/data-table";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -89,7 +89,7 @@ export default function ReportsPage() {
 
 
   const availableProductsForFilter = useMemo(() => {
-    if (filterCategory === ALL_FILTER_VALUE || !filterCategory) { // Added !filterCategory for robustness
+    if (filterCategory === ALL_FILTER_VALUE || !filterCategory) { 
       return contextProducts;
     }
     return contextProducts.filter(p => p.category === filterCategory);
@@ -247,7 +247,7 @@ export default function ReportsPage() {
     {
         accessorKey: "reason",
         header: "Reason/Notes",
-        cell: ({ row }) => <div className="max-w-[200px] truncate" title={row.original.reason}>{row.original.reason || 'N/A'}</div>
+        cell: ({ row }) => <div className="max-w-[200px] truncate" title={row.original.reason || 'N/A'}>{row.original.reason || 'N/A'}</div>
     },
     {
         accessorKey: "warehouseName",
@@ -265,7 +265,7 @@ export default function ReportsPage() {
   }, [productBreakdown]);
 
   const pieChartData = useMemo(() => {
-    const typeCounts: Record<string, number> = {}; // Use string for key flexibility
+    const typeCounts: Record<string, number> = {}; 
     filteredTransactions.forEach(t => {
       typeCounts[t.type] = (typeCounts[t.type] || 0) + Math.abs(t.quantityChange);
     });
@@ -280,9 +280,9 @@ export default function ReportsPage() {
         p.status === 'Low Stock' ||
         p.status === 'Out of Stock'
     ).filter(p => {
-        return filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : p.warehouseId === filterWarehouse; // Added !filterWarehouse
+        return filterWarehouse === ALL_FILTER_VALUE || !filterWarehouse ? true : p.warehouseId === filterWarehouse; 
     }).filter(p => {
-        return filterCategory === ALL_FILTER_VALUE || !filterCategory ? true : p.category === filterCategory; // Added !filterCategory
+        return filterCategory === ALL_FILTER_VALUE || !filterCategory ? true : p.category === filterCategory; 
     });
   }, [filterWarehouse, filterCategory, contextProducts]);
 
@@ -316,7 +316,7 @@ export default function ReportsPage() {
     return MOCK_USER_ACTIVITIES.filter(activity => {
       const activityDate = new Date(activity.timestamp);
       const dateMatch = isWithinInterval(activityDate, { start: dateRange.from as Date, end: dateRange.to as Date });
-      const userMatch = filterUserActivity === ALL_FILTER_VALUE || !filterUserActivity ? true : activity.userId === filterUserActivity; // Added !filterUserActivity
+      const userMatch = filterUserActivity === ALL_FILTER_VALUE || !filterUserActivity ? true : activity.userId === filterUserActivity; 
       return dateMatch && userMatch;
     });
   }, [dateRange, filterUserActivity]);
@@ -430,6 +430,25 @@ export default function ReportsPage() {
     }));
     const csvData = generateCsvData(dataToExport, headers);
     downloadCsv(csvData, `low_stock_report_${dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : ''}_${dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}.csv`);
+  };
+
+  const handleExportUserActivity = () => {
+    if (filteredUserActivities.length === 0) {
+      toast({ title: "No data to export", description: "No user activities found for current filters." });
+      return;
+    }
+    const headers = [
+      { key: "userName", label: "User" },
+      { key: "action", label: "Action" },
+      { key: "timestamp", label: "Timestamp" },
+      { key: "details", label: "Details/Reference" },
+    ];
+    const dataToExport = filteredUserActivities.map(activity => ({
+        ...activity,
+        timestamp: activity.timestamp ? format(parseISO(activity.timestamp), 'yyyy-MM-dd HH:mm:ss') : '',
+    }));
+    const csvData = generateCsvData(dataToExport, headers);
+    downloadCsv(csvData, `user_activity_log_${dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : ''}_${dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}.csv`);
   };
 
 
@@ -653,9 +672,14 @@ export default function ReportsPage() {
       </Card>
 
       <Card className="mt-6 shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-purple-500" /> User Activity Log</CardTitle>
-          <CardDescription>Tracks key actions performed by users within the selected date range and user filter.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-purple-500" /> User Activity Log</CardTitle>
+                <CardDescription>Tracks key actions performed by users within the selected date range and user filter.</CardDescription>
+            </div>
+            <Button onClick={handleExportUserActivity} variant="outline" size="sm" disabled={filteredUserActivities.length === 0}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
         </CardHeader>
         <CardContent>
           {dateRange?.from && dateRange?.to ? (

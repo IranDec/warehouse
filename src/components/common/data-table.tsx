@@ -9,8 +9,8 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
-  getSortedRowModel, // Added for sorting
-  SortingState,      // Added for sorting
+  getSortedRowModel, 
+  SortingState,      
   useReactTable,
 } from "@tanstack/react-table";
 
@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { ArrowUpDown } from "lucide-react"; // For sort icons
+import { ArrowUpDown } from "lucide-react"; 
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -33,6 +33,7 @@ interface DataTableProps<TData, TValue> {
   filterInputPlaceholder?: string;
   filterColumn?: string; 
   actionButtons?: React.ReactNode;
+  emptyStateMessage?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -41,23 +42,24 @@ export function DataTable<TData, TValue>({
   filterInputPlaceholder = "Filter records...",
   filterColumn,
   actionButtons,
+  emptyStateMessage = "No records found matching your criteria.",
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = React.useState("");
-  const [sorting, setSorting] = React.useState<SortingState>([]); // Added for sorting
+  const [sorting, setSorting] = React.useState<SortingState>([]); 
 
   const table = useReactTable({
     data,
     columns,
     state: {
       globalFilter,
-      sorting, // Added for sorting
+      sorting, 
     },
     onGlobalFilterChange: setGlobalFilter,
-    onSortingChange: setSorting, // Added for sorting
+    onSortingChange: setSorting, 
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(), // Added for sorting
+    getSortedRowModel: getSortedRowModel(), 
   });
 
   return (
@@ -128,7 +130,7 @@ export function DataTable<TData, TValue>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  {emptyStateMessage}
                 </TableCell>
               </TableRow>
             )}
