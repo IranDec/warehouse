@@ -144,6 +144,7 @@ const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; pe
       "Oversee all inventory transactions and material requests.",
       "Access all reports and system logs.",
       "Configure CMS integrations and notification systems.",
+      "Define Bill of Materials (BOM).",
     ],
   },
   WarehouseManager: {
@@ -154,7 +155,9 @@ const ROLE_DEFINITIONS: Record<UserRole, { name: string; description: string; pe
       "Approve or reject material requests from departments.",
       "Manage Department Employee users (add, edit roles, assign categories).",
       "Access operational reports (inventory, material requests, etc.).",
-      "Update product statuses and manage BOM configurations.",
+      "Update product statuses and view BOM configurations.",
+      "Manage warehouse locations and categories assigned to them.",
+      "Manage notification rules for low stock."
     ],
   },
   DepartmentEmployee: {
@@ -223,9 +226,9 @@ export default function SettingsPage() {
   const handleManageBOMs = (action: 'add' | 'edit', bomId?: string) => {
     const actionText = action === 'add' ? 'adding a new' : `editing existing (ID: ${bomId || 'N/A'})`;
     toast({
-      title: `Simulated BOM Management`,
-      description: `In a real system, clicking this would open a dedicated modal/form for ${actionText} Bill of Materials configuration. You would select a finished good, then add raw materials and their required quantities.`,
-      duration: 10000
+      title: `Simulated BOM Management Action`,
+      description: `In a real system, this would open a dedicated interface for ${actionText} Bill of Materials configuration. You would select a finished good, then add its constituent raw materials and their required quantities. Changes would be saved to the database.`,
+      duration: 12000
     });
   };
 
@@ -238,7 +241,8 @@ export default function SettingsPage() {
   const canManageWarehouses = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageCategories = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
   const canManageNotifications = currentUser?.role === 'Admin' || currentUser?.role === 'WarehouseManager';
-  const canManageIntegrations = currentUser?.role === 'Admin';
+  const canManageIntegrations = currentUser?.role === 'Admin'; // Admin for CMS connection
+  const canManageBOMs = currentUser?.role === 'Admin'; // Admin for defining BOMs
 
   const handleOpenNewEditWarehouseModal = (warehouse?: Warehouse) => {
     setEditingWarehouse(warehouse || null);
@@ -527,7 +531,7 @@ export default function SettingsPage() {
               <div className="border-t pt-6">
                 <div className="flex justify-between items-center mb-3">
                     <h3 className="text-md font-semibold flex items-center"><FileJson className="mr-2 h-5 w-5 text-primary"/> Bill of Materials (BOM) Management</h3>
-                    {canManageIntegrations && (
+                    {canManageBOMs && ( // Use canManageBOMs here
                         <Button variant="outline" size="sm" onClick={() => handleManageBOMs('add')}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add New BOM (Simulated)
                         </Button>
@@ -541,26 +545,26 @@ export default function SettingsPage() {
                     {MOCK_BOM_CONFIGURATIONS.map((bom, bomIndex) => {
                       const finishedGood = MOCK_PRODUCTS.find(p => p.id === bom.productId);
                       return (
-                        <Card key={bom.productId} className="shadow-md">
-                          <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <Card key={bom.productId} className="shadow-md bg-card">
+                          <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4 px-4">
                             <CardTitle className="text-base">
-                              Finished Good: {finishedGood?.name || bom.productName || bom.productId}
+                              BOM for: <span className="font-bold text-primary">{finishedGood?.name || bom.productName || bom.productId}</span>
                             </CardTitle>
-                            {canManageIntegrations && (
+                            {canManageBOMs && ( // Use canManageBOMs here
                               <Button variant="ghost" size="sm" onClick={() => handleManageBOMs('edit', bom.productId)}>
                                 <Edit className="h-4 w-4 mr-1" /> Edit
                               </Button>
                             )}
                           </CardHeader>
-                          <CardContent>
-                            <p className="text-xs text-muted-foreground mb-2">Requires the following raw materials:</p>
+                          <CardContent className="px-4 pb-4">
+                            <p className="text-xs text-muted-foreground mb-2">Constituent Raw Materials:</p>
                             {bom.items.length > 0 ? (
-                              <ul className="list-disc list-inside pl-4 space-y-1 text-sm">
+                              <ul className="list-disc list-inside pl-4 space-y-1 text-sm text-card-foreground">
                                 {bom.items.map((item, itemIndex) => {
                                   const rawMaterial = MOCK_PRODUCTS.find(p => p.id === item.rawMaterialId);
                                   return (
                                     <li key={`${bom.productId}-${item.rawMaterialId}-${itemIndex}`}>
-                                      {item.quantityNeeded} x {rawMaterial?.name || item.rawMaterialName || item.rawMaterialId}
+                                      {item.quantityNeeded} x <span className="font-medium">{rawMaterial?.name || item.rawMaterialName || item.rawMaterialId}</span> (SKU: {rawMaterial?.sku || 'N/A'})
                                     </li>
                                   );
                                 })}
@@ -574,9 +578,11 @@ export default function SettingsPage() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No BOM configurations defined yet.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No BOM configurations defined yet.
+                    {canManageBOMs && " Click 'Add New BOM' to create one."}
+                  </p>
                 )}
-                 {!canManageIntegrations && MOCK_BOM_CONFIGURATIONS.length > 0 && (
+                 {!canManageBOMs && MOCK_BOM_CONFIGURATIONS.length > 0 && (
                    <p className="text-xs text-destructive pt-2 text-center">You do not have permission to manage BOM configurations.</p>
                  )}
               </div>
